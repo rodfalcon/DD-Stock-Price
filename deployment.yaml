@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stockprice-backend
+  labels:
+    app: stockprice-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stockprice-backend
+  template:
+    metadata:
+      labels:
+        app: stockprice-backend
+      annotations:
+        ad.datadoghq.com/stockprice-backend.check_names: '["aspdotnet"]'
+        ad.datadoghq.com/stockprice-backend.init_configs: '[{}]'
+        ad.datadoghq.com/stockprice-backend.instances: '[{"host": "%%host%%", "port": 80}]'
+        ad.datadoghq.com/stockprice-backend.logs: '[{"source": "aspdotnet"}]'
+        ad.datadoghq.com/stockprice-backend.tags: '[{"env": "production"}]'
+        ad.datadoghq.com/stockprice-backend.apm: 'true'
+        admission.datadoghq.com/enabled: "true"
+        admission.datadoghq.com/dotnet-lib.version: "latest"
+    spec:
+      containers:
+        - name: stockprice-backend
+          image: stockprice-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: DD_ENV
+              value: "production"
+            - name: DD_SERVICE
+              value: "stockprice-backend"
+            - name: DD_VERSION
+              value: "1.0.0"
+            - name: CORECLR_ENABLE_PROFILING
+              value: "1"
+            - name: CORECLR_PROFILER
+              value: "{846F5F1C-F9AE-4B07-969E-05C26BC060D8}"
+            - name: CORECLR_PROFILER_PATH
+              value: "/opt/datadog/Datadog.Trace.ClrProfiler.Native.so"
+            - name: DD_INTEGRATIONS
+              value: "/opt/datadog/integrations.json"
+            - name: DD_DOTNET_TRACER_HOME
+              value: "/opt/datadog"
+            - name: DD_TRACE_DEBUG
+              value: "0"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stockprice-frontend
+  labels:
+    app: stockprice-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stockprice-frontend
+  template:
+    metadata:
+      labels:
+        app: stockprice-frontend
+      annotations:
+        ad.datadoghq.com/stockprice-frontend.check_names: '["nginx"]'
+        ad.datadoghq.com/stockprice-frontend.init_configs: '[{}]'
+        ad.datadoghq.com/stockprice-frontend.instances: '[{"host": "%%host%%", "port": 80}]'
+        ad.datadoghq.com/stockprice-frontend.logs: '[{"source": "nginx"}]'
+        ad.datadoghq.com/stockprice-frontend.tags: '[{"env": "production"}]'
+        admission.datadoghq.com/enabled: "true"
+        admission.datadoghq.com/js-lib.version: "latest"
+    spec:
+      containers:
+        - name: stockprice-frontend
+          image: stockprice-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: REACT_APP_BACKEND_URL
+              value: "http://stockprice-backend-service:80"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stockprice-db
+  labels:
+    app: stockprice-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stockprice-db
+  template:
+    metadata:
+      labels:
+        app: stockprice-db
+      annotations:
+        ad.datadoghq.com/stockprice-db.check_names: '["sqlserver"]'
+        ad.datadoghq.com/stockprice-db.init_configs: '[{}]'
+        ad.datadoghq.com/stockprice-db.instances: '[{"host": "%%host%%", "port": 1433}]'
+        ad.datadoghq.com/stockprice-db.logs: '[{"source": "sqlserver"}]'
+        ad.datadoghq.com/stockprice-db.tags: '[{"env": "production"}]'
+    spec:
+      containers:
+        - name: stockprice-db
+          image: mcr.microsoft.com/mssql/server
+          ports:
+            - containerPort: 1433
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: SA_PASSWORD
+              value: "YourStrong!Passw0rd"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stockprice-backend-service
+spec:
+  selector:
+    app: stockprice-backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stockprice-frontend-service
+spec:
+  selector:
+    app: stockprice-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30001  # You can specify a port number or let Kubernetes assign one
+  type: NodePort
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stockprice-db-service
+spec:
+  selector:
+    app: stockprice-db
+  ports:
+    - protocol: TCP
+      port: 1433
+      targetPort: 1433
+  type: ClusterIP

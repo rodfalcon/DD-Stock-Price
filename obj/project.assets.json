@@ -2,6 +2,19 @@
   "version": 3,
   "targets": {
     "net8.0": {
+      "DogStatsD-CSharp-Client/8.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/StatsdClient.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/StatsdClient.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Humanizer.Core/2.14.1": {
         "type": "package",
         "compile": {
@@ -1307,6 +1320,25 @@
     }
   },
   "libraries": {
+    "DogStatsD-CSharp-Client/8.0.0": {
+      "sha512": "IECuFsvvxJ2CK67c1mMqfAorLo7QFjr05i9lSv884sIX8TMzWTdBUxtIiTM1NQ/qWqXYLx6IrFnGcldo2LKpqQ==",
+      "type": "package",
+      "path": "dogstatsd-csharp-client/8.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "dogstatsd-csharp-client.8.0.0.nupkg.sha512",
+        "dogstatsd-csharp-client.nuspec",
+        "lib/net461/StatsdClient.dll",
+        "lib/net461/StatsdClient.xml",
+        "lib/net6.0/StatsdClient.dll",
+        "lib/net6.0/StatsdClient.xml",
+        "lib/netcoreapp3.1/StatsdClient.dll",
+        "lib/netcoreapp3.1/StatsdClient.xml",
+        "lib/netstandard2.0/StatsdClient.dll",
+        "lib/netstandard2.0/StatsdClient.xml"
+      ]
+    },
     "Humanizer.Core/2.14.1": {
       "sha512": "lQKvtaTDOXnoVJ20ibTuSIOf2i0uO0MPbDhd1jm238I+U/2ZnRENj0cktKZhtchBMtCUSRQ5v4xBCUbKNmyVMw==",
       "type": "package",
@@ -3384,6 +3416,7 @@
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "DogStatsD-CSharp-Client >= 8.0.0",
       "Microsoft.AspNetCore.Cors >= 2.2.0",
       "Microsoft.AspNetCore.OpenApi >= 8.0.0",
       "Microsoft.AspNetCore.SpaServices.Extensions >= 8.0.6",
@@ -3430,6 +3463,10 @@
       "net8.0": {
         "targetAlias": "net8.0",
         "dependencies": {
+          "DogStatsD-CSharp-Client": {
+            "target": "Package",
+            "version": "[8.0.0, )"
+          },
           "Microsoft.AspNetCore.Cors": {
             "target": "Package",
             "version": "[2.2.0, )"

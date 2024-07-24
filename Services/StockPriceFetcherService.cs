@@ -6,61 +6,61 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using StockPriceApi.Data;
-using StockPriceApi.Models;
+using StockPriceApi.Controllers;
 
 public class StockPriceFetcherService : BackgroundService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<StockPriceFetcherService> _logger;
-    private const string API_KEY = "JV0ISEJIQFVX14EH";
-    private const string STOCK_SYMBOL = "DDOG";
+    private readonly IHttpClientFactory _clientFactory;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public StockPriceFetcherService(IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory, ILogger<StockPriceFetcherService> logger)
+    public StockPriceFetcherService(ILogger<StockPriceFetcherService> logger, IHttpClientFactory clientFactory, IServiceScopeFactory scopeFactory)
     {
-        _httpClientFactory = httpClientFactory;
-        _scopeFactory = scopeFactory;
         _logger = logger;
+        _clientFactory = clientFactory;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
+            await FetchAndCacheStockPrice("DDOG", stoppingToken);
+            await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+        }
+    }
+
+    private async Task FetchAndCacheStockPrice(string symbol, CancellationToken stoppingToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var client = _clientFactory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey=JV0ISEJIQFVX14EH");
+
+        var response = await client.SendAsync(request, stoppingToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseData = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("Background Service Response data: " + responseData);
+
+            var jsonResponse = JObject.Parse(responseData);
+            var price = jsonResponse["Global Quote"]["05. price"].ToString();
+            var timestamp = DateTime.Parse(jsonResponse["Global Quote"]["07. latest trading day"].ToString());
+
+            var stockPrice = new StockPrice
             {
-                var httpClient = _httpClientFactory.CreateClient();
-                var url = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={STOCK_SYMBOL}&apikey={API_KEY}";
-                var response = await httpClient.GetStringAsync(url);
-                var data = JObject.Parse(response);
+                Symbol = symbol,
+                Price = decimal.Parse(price),
+                Timestamp = timestamp
+            };
 
-                if (data != null && data["Global Quote"] is JObject stockData && stockData["05. price"] is JToken priceToken)
-                {
-                    var price = decimal.Parse(priceToken.ToString());
-                    var stockPrice = new StockPrice
-                    {
-                        Symbol = STOCK_SYMBOL,
-                        Price = price,
-                        Timestamp = DateTime.UtcNow
-                    };
-
-                    using (var scope = _scopeFactory.CreateScope())
-                    {
-                        var dbContext = scope.ServiceProvider.GetRequiredService<StockPriceContext>();
-                        dbContext.StockPrices.Add(stockPrice);
-                        await dbContext.SaveChangesAsync();
-                    }
-
-                    _logger.LogInformation($"Fetched and stored price: {price}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while fetching or storing stock prices.");
-            }
-
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); // Adjust the interval as needed
+            StockPriceController.UpdateCache(symbol, stockPrice);
+        }
+        else
+        {
+            _logger.LogError("Failed to fetch data from Alpha Vantage in Background Service");
         }
     }
 }

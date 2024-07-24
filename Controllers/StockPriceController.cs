@@ -1,52 +1,90 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
-using Microsoft.Extensions.Logging;
+using StatsdClient;
 
 namespace StockPriceApi.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class StockPriceController : ControllerBase
     {
-        private readonly HttpClient _httpClient;
         private readonly ILogger<StockPriceController> _logger;
-        private const string API_KEY = "JV0ISEJIQFVX14EH";
-        private const string STOCK_SYMBOL = "DDOG";
+        private readonly IHttpClientFactory _clientFactory;
+        private static ConcurrentDictionary<string, StockPrice> _cache = new ConcurrentDictionary<string, StockPrice>();
 
-        public StockPriceController(HttpClient httpClient, ILogger<StockPriceController> logger)
+        public StockPriceController(ILogger<StockPriceController> logger, IHttpClientFactory clientFactory)
         {
-            _httpClient = httpClient;
             _logger = logger;
+            _clientFactory = clientFactory;
+        }
+
+        public static void UpdateCache(string symbol, StockPrice stockPrice)
+        {
+            _cache[symbol] = stockPrice;
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> GetStockPrice(string symbol)
         {
-            try
+            if (_cache.TryGetValue(symbol, out StockPrice cachedPrice) && cachedPrice.Timestamp > DateTime.Now.AddMinutes(-30))
             {
-                var url = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={STOCK_SYMBOL}&apikey={API_KEY}";
-                var response = await _httpClient.GetStringAsync(url);
-                var data = JObject.Parse(response);
+                DogStatsd.Gauge("stock_price", (double)cachedPrice.Price, tags: new[] { "symbol:" + symbol });
+                return Ok(cachedPrice);
+            }
 
-                if (data != null && data["Global Quote"] is JObject stockData && stockData["05. price"] is JToken priceToken)
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey=JV0ISEJIQFVX14EH");
+
+            var client = _clientFactory.CreateClient();
+            var response = await client.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseData = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Response data: " + responseData);
+
+                var jsonResponse = JObject.Parse(responseData);
+                if (jsonResponse["Information"]?.ToString().Contains("API rate limit") == true)
                 {
-                    var price = priceToken.ToString();
-                    var timestamp = DateTime.UtcNow.ToString("o"); // Include the timestamp in ISO 8601 format
-                    _logger.LogInformation($"Price retrieved: {price}");
-
-                    // Return the response with a timestamp
-                    return Ok(new { symbol = STOCK_SYMBOL, price = price, timestamp = timestamp });
+                    if (_cache.TryGetValue(symbol, out cachedPrice))
+                    {
+                        DogStatsd.Gauge("stock_price", (double)cachedPrice.Price, tags: new[] { "symbol:" + symbol });
+                        return Ok(cachedPrice);
+                    }
+                    return StatusCode(429, "API rate limit exceeded, and no cached data available.");
                 }
 
-                return StatusCode(500, "Failed to fetch stock data");
+                var price = jsonResponse["Global Quote"]["05. price"].ToString();
+                var timestamp = DateTime.Parse(jsonResponse["Global Quote"]["07. latest trading day"].ToString());
+
+                var stockPrice = new StockPrice
+                {
+                    Symbol = symbol,
+                    Price = decimal.Parse(price),
+                    Timestamp = timestamp
+                };
+
+                _cache[symbol] = stockPrice;
+                DogStatsd.Gauge("stock_price", (double)stockPrice.Price, tags: new[] { "symbol:" + symbol });
+                return Ok(stockPrice);
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "An error occurred while fetching stock data.");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError("Failed to fetch data from Alpha Vantage");
+                return StatusCode((int)response.StatusCode, "Failed to fetch data");
             }
         }
+    }
+
+    public class StockPrice
+    {
+        public string Symbol { get; set; }
+        public decimal Price { get; set; }
+        public DateTime Timestamp { get; set; }
     }
 }

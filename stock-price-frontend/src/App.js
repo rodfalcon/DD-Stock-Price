@@ -1,6 +1,5 @@
-// src/App.js
 import React from 'react';
-import StockPrices from './StockPrices';
+import StockPrices from './components/StockPrices';
 
 function App() {
     return (

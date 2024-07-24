@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "vZqAIgsZc5Hhhc/xKx2UxE8gWbQNgVKjmTLj0z70cBGiFg/K3tWfrc6l3Zk/sJAqogGitqd4V7mPwx6Lw/HOeQ==",
+  "dgSpecHash": "MAGZjdLK9RQ1HZ82uM1zUathA4MBCu/uba2T0yqPB7W1lyGKVpAIIA3sF37FqEgDLgSqsUa4HttqwhAEBvKxug==",
   "success": true,
   "projectFilePath": "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/StockPriceApi.csproj",
   "expectedPackageFiles": [
+    "/Users/rodrigo.falcao/.nuget/packages/dogstatsd-csharp-client/8.0.0/dogstatsd-csharp-client.8.0.0.nupkg.sha512",
     "/Users/rodrigo.falcao/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
     "/Users/rodrigo.falcao/.nuget/packages/microsoft.aspnetcore.cors/2.2.0/microsoft.aspnetcore.cors.2.2.0.nupkg.sha512",
     "/Users/rodrigo.falcao/.nuget/packages/microsoft.aspnetcore.http.abstractions/2.2.0/microsoft.aspnetcore.http.abstractions.2.2.0.nupkg.sha512",

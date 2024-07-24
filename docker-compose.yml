@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  datadog-agent:
+    image: "gcr.io/datadoghq/agent:latest"
+    container_name: datadog-agent
+    env_file:
+      - ~/sandbox.docker.env #MY API KEY IS STORED IN THIS FILE. IN YOUR CASE, PLEASE USE DD_API_KEY="YOUR API KEY VALUE" IN THE "environment" parameter below
+    environment:
+      - DD_APM_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_ENV=dev
+      - DD_LOG_LEVEL=INFO
+      - DD_SERVICE=stock-price-api
+      - DD_VERSION=1.0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+    ports:
+      - "8126:8126"
+      - "8125:8125/udp" # Expose DogStatsD port
+    networks:
+      - monitoring
+
+  backend:
+    build: .
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DD_AGENT_HOST=datadog-agent
+      - ConnectionStrings__StockPriceDatabase=Data Source=/app/stockprices.db
+      - DD_ENV=dev
+      - DD_LOG_LEVEL=INFO
+      - DD_SERVICE=stock-price-api
+      - DD_VERSION=1.0
+    ports:
+      - "5261:80"
+    volumes:
+      - ./stockprices.db:/app/stockprices.db
+    networks:
+      - monitoring
+      - frontend
+
+  frontend:
+    build:
+      context: ./stock-price-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    networks:
+      - frontend
+
+networks:
+  monitoring:
+  frontend:
