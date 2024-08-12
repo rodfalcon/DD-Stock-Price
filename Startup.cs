@@ -5,8 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using StockPriceApi.Data;
+using StockPriceApi.Controllers;
 using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
-using StatsdClient;
 
 namespace StockPriceApi
 {
@@ -26,6 +26,10 @@ namespace StockPriceApi
             services.AddDbContext<StockPriceContext>(options =>
                 options.UseSqlite(Configuration.GetConnectionString("StockPriceDatabase")));
             services.AddHostedService<StockPriceFetcherService>();
+
+            // Register StockPriceController as a service
+            services.AddSingleton<StockPriceController>();
+
             services.AddSpaStaticFiles(configuration =>
             {
                 configuration.RootPath = "ClientApp/build";
@@ -79,14 +83,6 @@ namespace StockPriceApi
                     spa.UseReactDevelopmentServer(npmScript: "start");
                 }
             });
-
-            // Configure DogStatsD
-            var dogStatsdConfig = new StatsdConfig
-            {
-                StatsdServerName = Configuration["DD_AGENT_HOST"],
-                StatsdPort = 8125,
-            };
-            DogStatsd.Configure(dogStatsdConfig);
         }
     }
 }

@@ -1,0 +1,26 @@
+# Stage 1: Build the React application
+FROM node:14 AS build
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json files to the container
+COPY stock-price-frontend/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy all files from the current directory to the container
+COPY stock-price-frontend/ .
+
+# Build the React application
+RUN npm run build
+
+# Stage 2: Serve the React application using Nginx
+FROM nginx:alpine
+
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
