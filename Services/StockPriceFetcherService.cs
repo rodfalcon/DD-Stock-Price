@@ -3,24 +3,31 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StockPriceApi.Controllers;
 using StatsdClient;
 using StockPriceApi.Models;
+using StockPriceApi.Data;
 
 public class StockPriceFetcherService : BackgroundService
 {
     private readonly IHttpClientFactory _clientFactory;
-    private readonly StockPriceController _stockPriceController;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<StockPriceFetcherService> _logger;
-    private const string ALPHA_VANTAGE_API_KEY = "JV0ISEJIQFVX14EH";
+    private readonly DogStatsdService _dogStatsd;
 
-    public StockPriceFetcherService(IHttpClientFactory clientFactory, StockPriceController stockPriceController, ILogger<StockPriceFetcherService> logger)
+    public StockPriceFetcherService(
+        IHttpClientFactory clientFactory,
+        IServiceProvider serviceProvider,
+        ILogger<StockPriceFetcherService> logger,
+        DogStatsdService dogStatsd)
     {
         _clientFactory = clientFactory;
-        _stockPriceController = stockPriceController;
+        _serviceProvider = serviceProvider;
         _logger = logger;
+        _dogStatsd = dogStatsd;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,7 +44,7 @@ public class StockPriceFetcherService : BackgroundService
         var client = _clientFactory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Get,
-            $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=DDOG&apikey={ALPHA_VANTAGE_API_KEY}");
+            "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=DDOG&apikey=JV0ISEJIQFVX14EH");
 
         var response = await client.SendAsync(request, stoppingToken);
 
@@ -47,33 +54,23 @@ public class StockPriceFetcherService : BackgroundService
             _logger.LogInformation("Background Service Response data: " + responseData);
 
             var jsonResponse = JsonDocument.Parse(responseData);
-            var symbol = jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("01. symbol").GetString();
-            var price = decimal.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("05. price").GetString());
-            var timestamp = DateTime.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("07. latest trading day").GetString());
 
             var stockPriceData = new StockPrice
             {
-                Symbol = symbol,
-                Price = price,
-                Timestamp = timestamp
+                Symbol = jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("01. symbol").GetString(),
+                Price = decimal.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("05. price").GetString()),
+                Timestamp = DateTime.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("07. latest trading day").GetString())
             };
 
-            _stockPriceController.UpdateCache(symbol, stockPriceData);
-
-            var dogStatsd = new DogStatsdService();
-            dogStatsd.Configure(new StatsdConfig
+            using (var scope = _serviceProvider.CreateScope())
             {
-                StatsdServerName = "localhost",
-                StatsdPort = 8125
-            });
+                var context = scope.ServiceProvider.GetRequiredService<StockPriceContext>();
+                context.StockPrices.Add(stockPriceData);
+                await context.SaveChangesAsync(stoppingToken);
+            }
 
-            dogStatsd.Gauge("stock.price", (double)stockPriceData.Price, tags: new[] { $"symbol:{stockPriceData.Symbol}", $"timestamp:{stockPriceData.Timestamp}" });
-            dogStatsd.Gauge("stock.volume", int.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("06. volume").GetString()));
-            dogStatsd.Gauge("stock.open", double.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("02. open").GetString()));
-            dogStatsd.Gauge("stock.high", double.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("03. high").GetString()));
-            dogStatsd.Gauge("stock.low", double.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("04. low").GetString()));
-            dogStatsd.Gauge("stock.change", double.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("09. change").GetString()));
-            dogStatsd.Gauge("stock.change_percent", double.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("10. change percent").GetString().TrimEnd('%')));
+            _dogStatsd.Configure(new StatsdConfig { StatsdServerName = "localhost", StatsdPort = 8125 });
+            _dogStatsd.Gauge("StockPriceNow", (double)stockPriceData.Price, tags: new[] { $"symbol:{stockPriceData.Symbol}", $"timestamp:{stockPriceData.Timestamp}" });
         }
         else
         {

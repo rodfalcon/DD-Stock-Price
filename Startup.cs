@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.EntityFrameworkCore;
-using StockPriceApi.Data;
+using StatsdClient;
 using StockPriceApi.Controllers;
-using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
+using StockPriceApi.Data;
 
 namespace StockPriceApi
 {
@@ -26,16 +27,13 @@ namespace StockPriceApi
             services.AddDbContext<StockPriceContext>(options =>
                 options.UseSqlite(Configuration.GetConnectionString("StockPriceDatabase")));
             services.AddHostedService<StockPriceFetcherService>();
-
-            // Register StockPriceController as a service
-            services.AddSingleton<StockPriceController>();
+            services.AddSingleton<DogStatsdService>();
 
             services.AddSpaStaticFiles(configuration =>
             {
                 configuration.RootPath = "ClientApp/build";
             });
 
-            // Add CORS services
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp",
@@ -65,8 +63,6 @@ namespace StockPriceApi
             app.UseSpaStaticFiles();
 
             app.UseRouting();
-
-            // Use the CORS policy
             app.UseCors("AllowReactApp");
 
             app.UseEndpoints(endpoints =>

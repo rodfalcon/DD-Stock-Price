@@ -1,10 +1,7 @@
-using System.Collections.Concurrent;
-using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System.Net.Http;
-using System.Net.Http.Json;
-using StockPriceApi.Models;
+using Microsoft.EntityFrameworkCore;
+using StockPriceApi.Data;
 
 namespace StockPriceApi.Controllers
 {
@@ -12,25 +9,31 @@ namespace StockPriceApi.Controllers
     [Route("api/[controller]")]
     public class StockPriceController : ControllerBase
     {
-        private static ConcurrentDictionary<string, StockPrice> _cache = new ConcurrentDictionary<string, StockPrice>();
-        private readonly HttpClient _httpClient;
-        private readonly ILogger<StockPriceController> _logger;
+        private readonly StockPriceContext _context;
 
-        public StockPriceController(HttpClient httpClient, ILogger<StockPriceController> logger)
+        public StockPriceController(StockPriceContext context)
         {
-            _httpClient = httpClient;
-            _logger = logger;
+            _context = context;
         }
 
         [HttpGet]
-        public IActionResult GetStockPrices()
+        public async Task<IActionResult> GetLatestStockPrice()
         {
-            return Ok(_cache.Values);
-        }
+            var latestStockPrice = await _context.StockPrices
+                .OrderByDescending(sp => sp.Timestamp)
+                .FirstOrDefaultAsync();
 
-        public void UpdateCache(string symbol, StockPrice stockPrice)
-        {
-            _cache[symbol] = stockPrice;
+            if (latestStockPrice == null)
+            {
+                return NotFound(new { Message = "No stock price data available" });
+            }
+
+            return Ok(new
+            {
+                Symbol = latestStockPrice.Symbol,
+                Price = latestStockPrice.Price,
+                Timestamp = latestStockPrice.Timestamp
+            });
         }
     }
 }
