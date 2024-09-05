@@ -1,52 +1,117 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-function StockPrices() {
-    const [stockPrices, setStockPrices] = useState([]);
+const StockPrices = () => {
+    const [datadogData, setDatadogData] = useState([]);
+    const [dynatraceData, setDynatraceData] = useState([]);
+    const [newRelicData, setNewRelicData] = useState([]);
+    const [showDynatrace, setShowDynatrace] = useState(false);
+    const [showNewRelic, setShowNewRelic] = useState(false);
 
     useEffect(() => {
-        axios.get('http://localhost:5261/api/stockprice')
-            .then(response => {
-                console.log('Data fetched:', response.data); // Log the fetched data
-                const stockData = Array.isArray(response.data) ? response.data : [response.data];
-                setStockPrices(stockData);
-            })
-            .catch(error => {
-                console.error('There was an error fetching the stock prices!', error);
-            });
+        fetchData();
     }, []);
 
+    const fetchData = async () => {
+        try {
+            const response = await axios.get('http://localhost:5261/api/stockprice/DDOG');  // Backend API
+            setDatadogData(response.data);
+        } catch (error) {
+            console.error("Error fetching Datadog data:", error);
+        }
+    };
+
+    const fetchComparisonData = async (symbol) => {
+        try {
+            const response = await axios.get(`http://localhost:5261/api/stockprice/${symbol}`);  // Backend API
+            if (symbol === 'DT') {
+                setDynatraceData(response.data);
+                setShowDynatrace(true);
+            } else if (symbol === 'NEWR') {
+                setNewRelicData(response.data);
+                setShowNewRelic(true);
+            }
+        } catch (error) {
+            console.error(`Error fetching ${symbol} data:`, error);
+        }
+    };
+
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold mb-6 text-center">Stock Prices</h1>
-            <div className="overflow-x-auto">
-                <table className="min-w-full bg-white border border-gray-300">
-                    <thead className="bg-gray-200">
-                        <tr>
-                            <th className="py-2 px-4 border-b">Symbol</th>
-                            <th className="py-2 px-4 border-b">Price</th>
-                            <th className="py-2 px-4 border-b">Timestamp</th>
+        <div>
+            <button onClick={() => fetchComparisonData('DT')}>Add Dynatrace</button>
+            <button onClick={() => fetchComparisonData('NEWR')}>Add New Relic</button>
+
+            <h2>DDOG Stock Prices</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Price</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {datadogData.map((item, index) => (
+                        <tr key={index}>
+                            <td>{item.symbol}</td>
+                            <td>{item.price}</td>
+                            <td>{item.timestamp}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {stockPrices.length > 0 ? (
-                            stockPrices.map((stockPrice, index) => (
-                                <tr key={index} className="text-center">
-                                    <td className="py-2 px-4 border-b">{stockPrice.symbol}</td>
-                                    <td className="py-2 px-4 border-b">{stockPrice.price}</td>
-                                    <td className="py-2 px-4 border-b">{new Date(stockPrice.timestamp).toLocaleString()}</td>
-                                </tr>
-                            ))
-                        ) : (
+                    ))}
+                </tbody>
+            </table>
+
+            {showDynatrace && (
+                <div>
+                    <h2>Dynatrace Stock Prices</h2>
+                    <table>
+                        <thead>
                             <tr>
-                                <td colSpan="3" className="py-2 px-4 border-b text-center">No data available</td>
+                                <th>Symbol</th>
+                                <th>Price</th>
+                                <th>Timestamp</th>
                             </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {dynatraceData.map((item, index) => (
+                                <tr key={index}>
+                                    <td>{item.symbol}</td>
+                                    <td>{item.price}</td>
+                                    <td>{item.timestamp}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <button onClick={() => setShowDynatrace(false)}>Remove Dynatrace</button>
+                </div>
+            )}
+
+            {showNewRelic && (
+                <div>
+                    <h2>New Relic Stock Prices</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Price</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {newRelicData.map((item, index) => (
+                                <tr key={index}>
+                                    <td>{item.symbol}</td>
+                                    <td>{item.price}</td>
+                                    <td>{item.timestamp}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <button onClick={() => setShowNewRelic(false)}>Remove New Relic</button>
+                </div>
+            )}
         </div>
     );
-}
+};
 
 export default StockPrices;

@@ -8,7 +8,7 @@ COPY stock-price-frontend/package*.json ./
 
 # Install dependencies
 RUN npm install
-
+RUN npm install @datadog/browser-rum
 # Copy all files from the current directory to the container
 COPY stock-price-frontend/ .
 

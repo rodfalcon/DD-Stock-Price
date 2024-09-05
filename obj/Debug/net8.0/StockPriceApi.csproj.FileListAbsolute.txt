@@ -406,3 +406,4 @@
 /Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/obj/Debug/net8.0/StockPriceApi.pdb
 /Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/obj/Debug/net8.0/StockPriceApi.genruntimeconfig.cache
 /Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/obj/Debug/net8.0/ref/StockPriceApi.dll
+/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/bin/Debug/net8.0/StatsdClient.dll

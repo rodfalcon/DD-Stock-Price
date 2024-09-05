@@ -16,6 +16,7 @@ services:
       - DD_LOG_LEVEL=INFO
       - DD_SERVICE=stock-price-api
       - DD_VERSION=1.0
+      - DD_TAGS="machine:macOSX"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /proc/:/host/proc/:ro
@@ -50,6 +51,8 @@ services:
       - DD_ENV=dev
       - DD_SERVICE=stock-price-api
       - DD_VERSION=1.0.0
+      - DD_TRACE_SAMPLE_RATE=1
+      - DD_TAGS="machine:macOSX"
   db:
     image: mcr.microsoft.com/mssql/server
     environment:
