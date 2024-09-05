@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const StockPrices = () => {
-    const [datadogData, setDatadogData] = useState([]);
+    const [datadogData, setDatadogData] = useState([]); // Initialize as empty arrays
     const [dynatraceData, setDynatraceData] = useState([]);
     const [newRelicData, setNewRelicData] = useState([]);
     const [showDynatrace, setShowDynatrace] = useState(false);
@@ -15,7 +15,8 @@ const StockPrices = () => {
     const fetchData = async () => {
         try {
             const response = await axios.get('http://localhost:5261/api/stockprice/DDOG');  // Backend API
-            setDatadogData(response.data);
+            console.log('Datadog data:', response.data);  // Logging the data
+            setDatadogData([response.data]); // Wrap the response in an array
         } catch (error) {
             console.error("Error fetching Datadog data:", error);
         }
@@ -24,11 +25,12 @@ const StockPrices = () => {
     const fetchComparisonData = async (symbol) => {
         try {
             const response = await axios.get(`http://localhost:5261/api/stockprice/${symbol}`);  // Backend API
+            console.log(`${symbol} data:`, response.data);  // Log the data
             if (symbol === 'DT') {
-                setDynatraceData(response.data);
+                setDynatraceData([response.data]); // Wrap the response in an array
                 setShowDynatrace(true);
             } else if (symbol === 'NEWR') {
-                setNewRelicData(response.data);
+                setNewRelicData([response.data]); // Wrap the response in an array
                 setShowNewRelic(true);
             }
         } catch (error) {
