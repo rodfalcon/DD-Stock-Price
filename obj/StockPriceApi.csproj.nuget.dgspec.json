@@ -68,6 +68,18 @@
               "target": "Package",
               "version": "[13.0.3, )"
             },
+            "Serilog.AspNetCore": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Serilog.Formatting.Compact": {
+              "target": "Package",
+              "version": "[3.0.0, )"
+            },
+            "Serilog.Sinks.Datadog.Logs": {
+              "target": "Package",
+              "version": "[0.5.3, )"
+            },
             "StatsdClient": {
               "target": "Package",
               "version": "[2.0.68, )"

@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Formatting.Json;
+using Serilog.Sinks.Datadog.Logs;
 using StockPriceApi.Data; // Adjust the namespace to match your context
 
 namespace StockPriceApi
@@ -11,6 +14,11 @@ namespace StockPriceApi
     {
         public static void Main(string[] args)
         {
+            // Instantiate the logger
+            var log = new LoggerConfiguration()
+            .WriteTo.File(new JsonFormatter(renderMessage: true), "/app/logs/log.json")
+            .CreateLogger();
+            
             var host = CreateHostBuilder(args).Build();
             ApplyMigrations(host);
             host.Run();

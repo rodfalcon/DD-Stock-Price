@@ -2,11 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const StockPrices = () => {
-    const [datadogData, setDatadogData] = useState([]); // Initialize as empty arrays
-    const [dynatraceData, setDynatraceData] = useState([]);
-    const [newRelicData, setNewRelicData] = useState([]);
-    const [showDynatrace, setShowDynatrace] = useState(false);
-    const [showNewRelic, setShowNewRelic] = useState(false);
+    const [datadogData, setDatadogData] = useState([]);  // Start as empty array
 
     useEffect(() => {
         fetchData();
@@ -14,103 +10,57 @@ const StockPrices = () => {
 
     const fetchData = async () => {
         try {
-            const response = await axios.get('http://localhost:5261/api/stockprice/DDOG');  // Backend API
-            console.log('Datadog data:', response.data);  // Logging the data
-            setDatadogData([response.data]); // Wrap the response in an array
+            const response = await axios.get('http://localhost:5261/api/stockprice/DDOG');  // Your backend API
+            console.log('Datadog data:', response.data);  // Logging the fetched data
+
+            // Always wrap object in an array
+            if (response.data) {
+                const arrayData = Array.isArray(response.data) ? response.data : [response.data];
+                setDatadogData(arrayData);  // Update state with array
+            } else {
+                console.log('API response is empty or invalid');
+            }
         } catch (error) {
             console.error("Error fetching Datadog data:", error);
         }
     };
 
-    const fetchComparisonData = async (symbol) => {
-        try {
-            const response = await axios.get(`http://localhost:5261/api/stockprice/${symbol}`);  // Backend API
-            console.log(`${symbol} data:`, response.data);  // Log the data
-            if (symbol === 'DT') {
-                setDynatraceData([response.data]); // Wrap the response in an array
-                setShowDynatrace(true);
-            } else if (symbol === 'NEWR') {
-                setNewRelicData([response.data]); // Wrap the response in an array
-                setShowNewRelic(true);
-            }
-        } catch (error) {
-            console.error(`Error fetching ${symbol} data:`, error);
-        }
-    };
-
     return (
         <div>
-            <button onClick={() => fetchComparisonData('DT')}>Add Dynatrace</button>
-            <button onClick={() => fetchComparisonData('NEWR')}>Add New Relic</button>
-
-            <h2>DDOG Stock Prices</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Symbol</th>
-                        <th>Price</th>
-                        <th>Timestamp</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {datadogData.map((item, index) => (
-                        <tr key={index}>
-                            <td>{item.symbol}</td>
-                            <td>{item.price}</td>
-                            <td>{item.timestamp}</td>
+            <h2>Stock Prices Dashboard</h2>
+            {datadogData.length > 0 ? (
+                <table border="1" cellPadding="10">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Price</th>
+                            <th>Open</th>
+                            <th>High</th>
+                            <th>Low</th>
+                            <th>Change</th>
+                            <th>Change Percent</th>
+                            <th>Volume</th>
+                            <th>Timestamp</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            {showDynatrace && (
-                <div>
-                    <h2>Dynatrace Stock Prices</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th>Price</th>
-                                <th>Timestamp</th>
+                    </thead>
+                    <tbody>
+                        {datadogData.map((data, index) => (
+                            <tr key={index}>
+                                <td>{data.symbol || 'N/A'}</td>
+                                <td>{data.price || 'N/A'}</td>
+                                <td>{data.open || 'N/A'}</td>
+                                <td>{data.high || 'N/A'}</td>
+                                <td>{data.low || 'N/A'}</td>
+                                <td>{data.change || 'N/A'}</td>
+                                <td>{data.changePercent || 'N/A'}</td>
+                                <td>{data.volume || 'N/A'}</td>
+                                <td>{data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {dynatraceData.map((item, index) => (
-                                <tr key={index}>
-                                    <td>{item.symbol}</td>
-                                    <td>{item.price}</td>
-                                    <td>{item.timestamp}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <button onClick={() => setShowDynatrace(false)}>Remove Dynatrace</button>
-                </div>
-            )}
-
-            {showNewRelic && (
-                <div>
-                    <h2>New Relic Stock Prices</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th>Price</th>
-                                <th>Timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {newRelicData.map((item, index) => (
-                                <tr key={index}>
-                                    <td>{item.symbol}</td>
-                                    <td>{item.price}</td>
-                                    <td>{item.timestamp}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <button onClick={() => setShowNewRelic(false)}>Remove New Relic</button>
-                </div>
+                        ))}
+                    </tbody>
+                </table>
+            ) : (
+                <p>No data available yet...</p>  // Default message if no data
             )}
         </div>
     );
