@@ -5,12 +5,52 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;  /* Align vertically */
+  align-items: center;      /* Align horizontally */
+  min-height: 100vh;        /* Make sure the body takes up the full height */
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+table {
+  margin: 0 auto;           /* Center the table horizontally */
+  border-collapse: collapse;
+  width: 80%;
+  max-width: 1200px;        /* You can adjust the width */
+  border: 1px solid #ccc;
 }
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+@media (max-width: 768px) {
+  table {
+    width: 100%;            /* Full-width table on small screens */
+  }
+
+  th, td {
+    font-size: 14px;
+  }
+}
+
+th, td {
+  padding: 10px;
+  text-align: center;
+  border: 1px solid #ddd;
+}
+
+th {
+  background-color: #333;
+  color: white;
+}
+
+td {
+  background-color: #f9f9f9;
+}
+
+tr:nth-child(even) td {
+  background-color: #f1f1f1;
+}
+
+caption {
+  caption-side: top;
+  font-weight: bold;
+  margin-bottom: 10px;
+}

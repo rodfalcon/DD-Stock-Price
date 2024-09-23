@@ -1,84 +1,96 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
+using StockPriceApi.Models;
 using StatsdClient;
-using StockPriceApi.Controllers;
 using StockPriceApi.Data;
+using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
 
-namespace StockPriceApi
+public class Startup
 {
-    public class Startup
+    public IConfiguration Configuration { get; }
+
+    public Startup(IConfiguration configuration)
     {
-        public Startup(IConfiguration configuration)
+        Configuration = configuration;
+    }
+
+public void ConfigureServices(IServiceCollection services)
+{
+        services.AddControllers();
+        services.AddDbContext<StockPriceContext>(options =>
+            options.UseSqlite(Configuration.GetConnectionString("StockPriceDatabase")));
+
+        services.AddHttpClient();
+        services.AddSingleton<IDogStatsd, DogStatsdService>(sp =>
         {
-            Configuration = configuration;
+            var config = new StatsdConfig
+            {
+                StatsdServerName = "datadog-agent",
+                StatsdPort = 8125,
+            };
+
+            var dogStatsdService = new DogStatsdService(config);
+
+            return dogStatsdService;
+        });
+
+        // Register the StockPriceFetcherService as a hosted service
+        services.AddHostedService<StockPriceFetcherService>();
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy("AllowReactApp",
+                builder =>
+                {
+                    builder.AllowAnyOrigin()
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
+                });
+        });
+        // Other service registrations...
+
+        services.AddSpaStaticFiles(configuration =>
+        {
+            configuration.RootPath = "stock-price-frontend/build"; // Adjust the path according to your frontend project structure
+        });
+        // Additional configurations...
+}
+
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        if (env.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
+        else
+        {
+            app.UseExceptionHandler("/Error");
+            app.UseHsts();
         }
 
-        public IConfiguration Configuration { get; }
+        app.UseHttpsRedirection();
+        app.UseStaticFiles();
+        app.UseSpaStaticFiles();
 
-        public void ConfigureServices(IServiceCollection services)
+        app.UseRouting();
+
+        app.UseCors("AllowReactApp");
+
+        app.UseEndpoints(endpoints =>
         {
-            services.AddControllers();
-            services.AddHttpClient();
-            services.AddDbContext<StockPriceContext>(options =>
-                options.UseSqlite(Configuration.GetConnectionString("StockPriceDatabase")));
-            services.AddHostedService<StockPriceFetcherService>();
-            services.AddSingleton<DogStatsdService>();
+            endpoints.MapControllers();
+        });
 
-            services.AddSpaStaticFiles(configuration =>
-            {
-                configuration.RootPath = "ClientApp/build";
-            });
-
-            services.AddCors(options =>
-            {
-                options.AddPolicy("AllowReactApp",
-                    builder =>
-                    {
-                        builder.AllowAnyOrigin()
-                               .AllowAnyMethod()
-                               .AllowAnyHeader();
-                    });
-            });
-        }
-
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        app.UseSpa(spa =>
         {
+            spa.Options.SourcePath = "ClientApp";
+
             if (env.IsDevelopment())
             {
-                app.UseDeveloperExceptionPage();
+                spa.UseReactDevelopmentServer(npmScript: "start");
             }
-            else
-            {
-                app.UseExceptionHandler("/Error");
-                app.UseHsts();
-            }
-
-            app.UseHttpsRedirection();
-            app.UseStaticFiles();
-            app.UseSpaStaticFiles();
-
-            app.UseRouting();
-            app.UseCors("AllowReactApp");
-
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
-
-            app.UseSpa(spa =>
-            {
-                spa.Options.SourcePath = "ClientApp";
-
-                if (env.IsDevelopment())
-                {
-                    spa.UseReactDevelopmentServer(npmScript: "start");
-                }
-            });
-        }
+        });
     }
 }

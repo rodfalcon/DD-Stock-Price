@@ -50,7 +50,8 @@ spec:
               value: "/opt/datadog"
             - name: DD_TRACE_DEBUG
               value: "0"
-
+            - name: DD_TRACE_SAMPLE_RATE
+              value: "1"
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StockPriceApi.Data;
 
@@ -10,9 +11,11 @@ using StockPriceApi.Data;
 namespace StockPriceApi.Migrations
 {
     [DbContext(typeof(StockPriceContext))]
-    partial class StockPriceContextModelSnapshot : ModelSnapshot
+    [Migration("20240815093458_AddStockPriceColumns2")]
+    partial class AddStockPriceColumns2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.6");

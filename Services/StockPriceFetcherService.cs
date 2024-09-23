@@ -1,32 +1,30 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using StockPriceApi.Data;
+using StatsdClient;
 using System;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using StockPriceApi.Controllers;
-using StatsdClient;
 using StockPriceApi.Models;
-using StockPriceApi.Data;
 
 public class StockPriceFetcherService : BackgroundService
 {
-    private readonly IHttpClientFactory _clientFactory;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<StockPriceFetcherService> _logger;
-    private readonly DogStatsdService _dogStatsd;
+    private readonly StockPriceContext _context;
+    private readonly IDogStatsd _dogStatsd;
+    private readonly string[] _symbols = { "DDOG", "DT", "NEWR" };
+    private readonly string _datadogApiKey = "JV0ISEJIQFVX14EH";
+    private readonly string _dynatraceApiKey = "VWCZUT76ZA1ABBBS";
+    private readonly string _newRelicApiKey = "SZC86PF7HA6YU3FG";
 
-    public StockPriceFetcherService(
-        IHttpClientFactory clientFactory,
-        IServiceProvider serviceProvider,
-        ILogger<StockPriceFetcherService> logger,
-        DogStatsdService dogStatsd)
+    public StockPriceFetcherService(IHttpClientFactory httpClientFactory, ILogger<StockPriceFetcherService> logger, StockPriceContext context, IDogStatsd dogStatsd)
     {
-        _clientFactory = clientFactory;
-        _serviceProvider = serviceProvider;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _context = context;
         _dogStatsd = dogStatsd;
     }
 
@@ -34,47 +32,65 @@ public class StockPriceFetcherService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await FetchAndCacheStockPrice(stoppingToken);
+            foreach (var symbol in _symbols)
+            {
+                try
+                {
+                    await FetchAndCacheStockPrice(symbol, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Failed to fetch stock price for {symbol}");
+                }
+            }
+
+            // Wait for 30 minutes before fetching the stock prices again
             await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
         }
     }
 
-    private async Task FetchAndCacheStockPrice(CancellationToken stoppingToken)
+    private async Task FetchAndCacheStockPrice(string symbol, CancellationToken stoppingToken)
     {
-        var client = _clientFactory.CreateClient();
+        var client = _httpClientFactory.CreateClient();
 
-        var request = new HttpRequestMessage(HttpMethod.Get,
-            "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=DDOG&apikey=JV0ISEJIQFVX14EH");
-
-        var response = await client.SendAsync(request, stoppingToken);
-
-        if (response.IsSuccessStatusCode)
+        var apiKey = symbol switch
         {
-            var responseData = await response.Content.ReadAsStringAsync();
-            _logger.LogInformation("Background Service Response data: " + responseData);
+            "DDOG" => _datadogApiKey,
+            "DT" => _dynatraceApiKey,
+            "NEWR" => _newRelicApiKey,
+            _ => throw new InvalidOperationException("Unknown stock symbol")
+        };
 
-            var jsonResponse = JsonDocument.Parse(responseData);
+        var requestUri = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={apiKey}";
+        var response = await client.GetAsync(requestUri, stoppingToken);
 
-            var stockPriceData = new StockPrice
+        response.EnsureSuccessStatusCode();
+        var jsonResponse = await response.Content.ReadAsStringAsync(stoppingToken);
+        var stockPriceData = JsonSerializer.Deserialize<AlphaVantageResponse>(jsonResponse)?.GlobalQuote;
+
+        if (stockPriceData != null)
+        {
+            var stockPrice = new StockPrice
             {
-                Symbol = jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("01. symbol").GetString(),
-                Price = decimal.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("05. price").GetString()),
-                Timestamp = DateTime.Parse(jsonResponse.RootElement.GetProperty("Global Quote").GetProperty("07. latest trading day").GetString())
+                Symbol = symbol,
+                Price = decimal.Parse(stockPriceData.Price),
+                Open = decimal.Parse(stockPriceData.Open),
+                High = decimal.Parse(stockPriceData.High),
+                Low = decimal.Parse(stockPriceData.Low),
+                Change = decimal.Parse(stockPriceData.Change),
+                ChangePercent = decimal.Parse(stockPriceData.ChangePercent.TrimEnd('%')),
+                Volume = int.Parse(stockPriceData.Volume),
+                Timestamp = DateTime.UtcNow
             };
 
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<StockPriceContext>();
-                context.StockPrices.Add(stockPriceData);
-                await context.SaveChangesAsync(stoppingToken);
-            }
+            _context.StockPrices.Add(stockPrice);
+            await _context.SaveChangesAsync(stoppingToken);
 
-            _dogStatsd.Configure(new StatsdConfig { StatsdServerName = "localhost", StatsdPort = 8125 });
-            _dogStatsd.Gauge("StockPriceNow", (double)stockPriceData.Price, tags: new[] { $"symbol:{stockPriceData.Symbol}", $"timestamp:{stockPriceData.Timestamp}" });
+            _dogStatsd.Histogram("stock.price", (double)stockPrice.Price, tags: new[] { $"symbol:{stockPrice.Symbol}", "env:production", "service:stockpriceapi", "version:1.0" });
         }
         else
         {
-            _logger.LogError("Failed to fetch data from Alpha Vantage in Background Service");
+            _logger.LogError($"Failed to fetch data from Alpha Vantage for {symbol}");
         }
     }
 }

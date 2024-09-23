@@ -8,13 +8,17 @@ RUN apt-get update \
     && apt-get install -y curl \
     && mkdir -p /opt/datadog \
     && mkdir -p /var/log/datadog \
-    && curl -LO https://github.com/DataDog/dd-trace-dotnet/releases/download/v2.55.0/datadog-dotnet-apm-2.55.0.arm64.tar.gz \
-    && tar -xzf datadog-dotnet-apm-2.55.0.arm64.tar.gz -C /opt/datadog \
-    && rm datadog-dotnet-apm-2.55.0.arm64.tar.gz \
+    && curl -LO https://github.com/DataDog/dd-trace-dotnet/releases/download/v3.2.0/datadog-dotnet-apm-3.2.0.arm64.tar.gz \
+    && tar -xzf datadog-dotnet-apm-3.2.0.arm64.tar.gz -C /opt/datadog \
+    && rm datadog-dotnet-apm-3.2.0.arm64.tar.gz \
+    # && TRACER_VERSION=$(curl -s https://api.github.com/repos/DataDog/dd-trace-dotnet/releases/latest | grep tag_name | cut -d '"' -f 4 | cut -c2-) \
+    # && curl -LO https://github.com/DataDog/dd-trace-dotnet/releases/download/v${TRACER_VERSION}/datadog-dotnet-apm-${TRACER_VERSION}.arm64.tar.gz \
+    # && tar -xzf ./datadog-dotnet-apm-${TRACER_VERSION}.arm64.tar.gz \
+    # && rm ./datadog-dotnet-apm-${TRACER_VERSION}.arm64.tar.gz \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Enable the tracer
+    # Enable the tracer
 ENV CORECLR_ENABLE_PROFILING=1 \
     CORECLR_PROFILER="{846F5F1C-F9AE-4B07-969E-05C26BC060D8}" \
     CORECLR_PROFILER_PATH="/opt/datadog/Datadog.Trace.ClrProfiler.Native.so" \

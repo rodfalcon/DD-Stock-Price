@@ -8,6 +8,8 @@ COPY stock-price-frontend/package*.json ./
 
 # Install dependencies
 RUN npm install
+RUN npm install @datadog/browser-rum
+RUN npm i @datadog/browser-logs
 
 # Copy all files from the current directory to the container
 COPY stock-price-frontend/ .
@@ -19,6 +21,9 @@ RUN npm run build
 FROM nginx:alpine
 
 COPY --from=build /app/build /usr/share/nginx/html
+
+# Ensure /app/logs directory exists
+RUN mkdir -p /app/logs
 
 # Expose port 80
 EXPOSE 80
