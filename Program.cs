@@ -15,13 +15,28 @@ namespace StockPriceApi
         public static void Main(string[] args)
         {
             // Instantiate the logger
-            var log = new LoggerConfiguration()
-            .WriteTo.File(new JsonFormatter(renderMessage: true), "/app/logs/log.json")
+            Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .WriteTo.File(new JsonFormatter(renderMessage: true), "/app/logs/log.json", rollingInterval: RollingInterval.Day)
             .CreateLogger();
-            
-            var host = CreateHostBuilder(args).Build();
-            ApplyMigrations(host);
-            host.Run();
+
+            try
+            {
+                Log.Information("Starting the web host");
+                var host = CreateHostBuilder(args).Build();
+                ApplyMigrations(host);
+                host.Run();
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "The application failed to start correctly");
+                throw;
+            }
+            finally
+            {
+                Log.CloseAndFlush(); // Ensure all logs are flushed on shutdown
+            }
+
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>

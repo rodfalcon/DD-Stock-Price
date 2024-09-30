@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using StockPriceApi.Data;
+using Serilog;
 using StockPriceApi.Models;
 
 namespace StockPriceApi.Controllers
@@ -25,6 +26,7 @@ namespace StockPriceApi.Controllers
         [HttpGet("{symbol}")]
         public async Task<IActionResult> GetStockPrice(string symbol)
         {
+            Log.Information("Fetching stock price for {Symbol}", symbol);
             var stockPrice = await _context.StockPrices
                 .Where(sp => sp.Symbol == symbol)
                 .OrderByDescending(sp => sp.Timestamp)
@@ -32,9 +34,10 @@ namespace StockPriceApi.Controllers
 
             if (stockPrice == null)
             {
+                Log.Warning("Stock price for {Symbol} not found", symbol);
                 return NotFound();
             }
-
+            Log.Information("Fetched stock price: {StockPrice}", stockPrice);
             return Ok(stockPrice);
         }
 
