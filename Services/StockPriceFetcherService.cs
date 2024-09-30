@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using StockPriceApi.Models;
+using Serilog;
 
 public class StockPriceFetcherService : BackgroundService
 {
@@ -36,6 +37,7 @@ public class StockPriceFetcherService : BackgroundService
             {
                 try
                 {
+                    Log.Information("Stock price fetcher started");
                     await FetchAndCacheStockPrice(symbol, stoppingToken);
                 }
                 catch (Exception ex)
@@ -52,6 +54,7 @@ public class StockPriceFetcherService : BackgroundService
     private async Task FetchAndCacheStockPrice(string symbol, CancellationToken stoppingToken)
     {
         var client = _httpClientFactory.CreateClient();
+        Log.Information("Fetching stock price for {Symbol}", symbol);
 
         var apiKey = symbol switch
         {
@@ -85,7 +88,7 @@ public class StockPriceFetcherService : BackgroundService
 
             _context.StockPrices.Add(stockPrice);
             await _context.SaveChangesAsync(stoppingToken);
-
+            Log.Information("Fetched stock price for {Symbol}", symbol);
             _dogStatsd.Histogram("stock.price", (double)stockPrice.Price, tags: new[] { $"symbol:{stockPrice.Symbol}", "env:production", "service:stockpriceapi", "version:1.0" });
         }
         else

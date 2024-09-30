@@ -3,6 +3,9 @@ FROM mcr.microsoft.com/dotnet/nightly/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 80
 
+# Create the log directory before running the app
+RUN mkdir -p /app/logs && chmod -R 777 /app/logs
+
 # Install curl, download and install the Tracer
 RUN apt-get update \
     && apt-get install -y curl \

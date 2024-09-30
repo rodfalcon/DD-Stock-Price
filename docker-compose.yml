@@ -19,6 +19,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /proc/:/host/proc/:ro
       - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - backend-logs:/app/logs:ro  # Volume to access backend logs
     ports:
       - "8126:8126"
       - "8125:8125/udp" # Expose DogStatsD port
@@ -44,7 +45,6 @@ services:
     labels:
       com.datadoghq.ad.logs: '[{"source": "nodejs", "service": "stock-price-frontend", "log_path": "/app/logs/your-log.log"}]'
 
-
   backend:
     build:
       context: .
@@ -61,8 +61,10 @@ services:
       - DD_LOGS_INJECTION=true
       - DD_TRACE_SAMPLE_RATE=1
       - DD_TAGS="machine:macOSX"
+    volumes:
+      - backend-logs:/app/logs  # Share logs directory
     labels:
-      com.datadoghq.ad.logs: '[{"source": "csharp", "service": "stock-price-api", "env": "dev, "version": "1.0.0", "sourcecategory": "sourcecode"}]'
+      com.datadoghq.ad.logs: '[{"type": "file", "path": "/app/logs/log*.json", "service": "stock-price-api", "source": "csharp", "env": "dev", "version": "1.0.0", "sourcecategory": "sourcecode"}]'
 
   db:
     image: mcr.microsoft.com/mssql/server
@@ -77,3 +79,6 @@ services:
 networks:
   monitoring:
     driver: bridge
+
+volumes:
+  backend-logs: # Named volume to share logs
