@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "FpdtSIzgSwbw/7JHXTZgNZCOJuJhXdq37oA/NoU3qG/XSo7e42QmZFjWruUms3uwQgUQQ36zBX6BFHga2/2xtQ==",
+  "dgSpecHash": "AxgVgvNLV2MO4xwDnAHPnx4N46DSIgydUWficx3SZaLPqACnYQJ5UZLqqpkUbLfzq1/OZRNtUlh9UDRw+mhmag==",
   "success": true,
-  "projectFilePath": "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/StockPriceApi.csproj",
+  "projectFilePath": "/Users/rodrigo.falcao/Documents/Sandbox apps/DD-Stock-Price/StockPriceApi.csproj",
   "expectedPackageFiles": [
     "/Users/rodrigo.falcao/.nuget/packages/dogstatsd-csharp-client/8.0.0/dogstatsd-csharp-client.8.0.0.nupkg.sha512",
     "/Users/rodrigo.falcao/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",

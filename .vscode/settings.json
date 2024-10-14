@@ -1,0 +1,9 @@
+{
+    "datadog.ust.service.setup.linkedNames": [
+        "stock-price-api",
+        "stock-price-api-http-client",
+        "stock-price-api-sqlite",
+        "stock-price-frontend"
+    ],
+    "datadog.ust.environment.setup.focusedName": "dev"
+}

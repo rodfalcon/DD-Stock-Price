@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/StockPriceApi.csproj": {}
+    "/Users/rodrigo.falcao/Documents/Sandbox apps/DD-Stock-Price/StockPriceApi.csproj": {}
   },
   "projects": {
-    "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/StockPriceApi.csproj": {
+    "/Users/rodrigo.falcao/Documents/Sandbox apps/DD-Stock-Price/StockPriceApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/StockPriceApi.csproj",
+        "projectUniqueName": "/Users/rodrigo.falcao/Documents/Sandbox apps/DD-Stock-Price/StockPriceApi.csproj",
         "projectName": "StockPriceApi",
-        "projectPath": "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/StockPriceApi.csproj",
+        "projectPath": "/Users/rodrigo.falcao/Documents/Sandbox apps/DD-Stock-Price/StockPriceApi.csproj",
         "packagesPath": "/Users/rodrigo.falcao/.nuget/packages/",
-        "outputPath": "/Users/rodrigo.falcao/Documents/Sandbox apps/StockPriceApi/obj/",
+        "outputPath": "/Users/rodrigo.falcao/Documents/Sandbox apps/DD-Stock-Price/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/rodrigo.falcao/.nuget/NuGet/NuGet.Config"

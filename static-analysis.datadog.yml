@@ -1,3 +1,8 @@
 rulesets:
   - docker-best-practices
+  - github-actions
+  - csharp-best-practices
+  - csharp-code-style
+  - csharp-security
+  - csharp-inclusive
 ignorePaths: []
