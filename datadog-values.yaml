@@ -495,8 +495,10 @@ datadog:
         - kube-system
         - kube-public
 
-      # datadog.apm.instrumentation.libVersions -- Inject specific version of tracing libraries with Single Step Instrumentation (beta).
-      libVersions: {}
+      # "latest" is valid for SSI init images; for .NET, keep Datadog.Trace.Bundle in StockPriceApi.csproj on the same tracer line or you risk native/managed mismatch.
+      libVersions:
+        dotnet: "latest"
+        js: "latest"
 
       # datadog.apm.instrumentation.skipKPITelemetry -- Disable generating Configmap for APM Instrumentation KPIs
       skipKPITelemetry: false
@@ -516,15 +518,15 @@ datadog:
   asm:
     threats:
       # datadog.asm.threats.enabled -- Enable Application Security Management Threats App & API Protection by injecting `DD_APPSEC_ENABLED=true` environment variable to all pods in the cluster
-      enabled: false
+      enabled: true
 
     sca:
       # datadog.asm.sca.enabled -- Enable Application Security Management Software Composition Analysis by injecting `DD_APPSEC_SCA_ENABLED=true` environment variable to all pods in the cluster
-      enabled: false
+      enabled: true
 
     iast:
       # datadog.asm.iast.enabled -- Enable Application Security Management Interactive Application Security Testing by injecting `DD_IAST_ENABLED=true` environment variable to all pods in the cluster
-      enabled: false
+      enabled: true
 
   ## OTLP ingest related configuration
   otlp:

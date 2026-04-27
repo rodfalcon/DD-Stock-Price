@@ -28,7 +28,6 @@ spec:
         ad.datadoghq.com/stockprice-backend.logs: '[{"source":"csharp","service":"stock-price-api","tags":["env:production","version:1.0.0","sourcecategory:sourcecode"]}]'
         ad.datadoghq.com/stockprice-backend.apm: 'true'
         admission.datadoghq.com/enabled: "true"
-        admission.datadoghq.com/dotnet-lib.version: "latest"
     spec:
       containers:
         - name: stockprice-backend

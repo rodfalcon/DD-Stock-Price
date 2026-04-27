@@ -1,4 +1,4 @@
-# Supported: .NET 8 LTS on Debian Bookworm (linux-x64 / linux-arm64 via Datadog.Trace.Bundle)
+# .NET 8 on Debian Bookworm. APM native profiler comes from K8s Single Step Instrumentation, not the image.
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-bookworm-slim AS base
 WORKDIR /app
 EXPOSE 80
@@ -20,6 +20,6 @@ WORKDIR /app
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 COPY --from=publish /app/publish .
-RUN /app/datadog/createLogPath.sh
+RUN mkdir -p /var/log/datadog/dotnet && chmod a+rwx /var/log/datadog/dotnet
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
