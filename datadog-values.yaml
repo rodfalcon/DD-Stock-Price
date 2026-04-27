@@ -104,7 +104,8 @@ datadog:
   ## * Overall length should not be higher than 80 characters.
   ## Compared to the rules of GKE, dots are allowed whereas they are not allowed on GKE:
   ## https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#Cluster.FIELDS.name
-  clusterName:  # <CLUSTER_NAME>
+  # Required for orchestrator / unified cluster identity (see agent status "cluster name is empty")
+  clusterName: dd-stock-price-local
 
   # datadog.site -- The site of the Datadog intake to send Agent data to.
   # (documentation: https://docs.datadoghq.com/getting_started/site/)
@@ -258,13 +259,13 @@ datadog:
 
   originDetectionUnified:
     # datadog.originDetectionUnified.enabled -- Enabled enables unified mechanism for origin detection. Default: false. (Requires Agent 7.54.0+).
-    enabled: false
+    enabled: true
 
   # datadog.tags -- List of static tags to attach to every metric, event and service check collected by this Agent.
 
   ## Learn more about tagging: https://docs.datadoghq.com/tagging/
   tags:
-     - "env:production"
+    - "env:production"
   #   - "<KEY_2>:<VALUE_2>"
 
   # datadog.checksCardinality -- Sets the tag cardinality for the checks run by the Agent.
@@ -281,7 +282,8 @@ datadog:
           fieldPath: status.hostIP
     # datadog.kubelet.tlsVerify -- Toggle kubelet TLS verification
     # @default -- true
-    tlsVerify:  # false
+    # Docker Desktop / kind: kubelet check often fails TLS to status.hostIP; logs still work but metadata checks error without this
+    tlsVerify: false
     # datadog.kubelet.hostCAPath -- Path (on host) where the Kubelet CA certificate is stored
     # @default -- None (no mount from host)
     hostCAPath:
@@ -429,7 +431,7 @@ datadog:
     # datadog.logs.containerCollectAll -- Enable this to allow log collection for all containers
 
     ## ref: https://docs.datadoghq.com/agent/basic_agent_usage/kubernetes/#log-collection-setup
-    containerCollectAll: false
+    containerCollectAll: true
 
     # datadog.logs.containerCollectUsingFiles -- Collect logs from files in /var/log/pods instead of using container runtime API
 
@@ -943,8 +945,8 @@ clusterAgent:
     # clusterAgent.image.name -- Cluster Agent image name to use (relative to `registry`)
     name: cluster-agent
 
-    # clusterAgent.image.tag -- Cluster Agent image tag to use
-    tag: 7.54.0
+    # clusterAgent.image.tag -- Cluster Agent image tag to use (omit to use chart default with agent upgrade)
+    # tag: 7.54.0
 
     # clusterAgent.image.digest -- Cluster Agent image digest to use, takes precedence over tag if specified
     digest: ""
@@ -1436,8 +1438,8 @@ agents:
     ## use "dogstatsd" for Standalone Datadog Agent DogStatsD 7
     name: agent
 
-    # agents.image.tag -- Define the Agent version to use
-    tag: 7.54.0
+    # agents.image.tag -- Define the Agent version to use (omit to use chart default with agent upgrade)
+    # tag: 7.54.0
 
     # agents.image.digest -- Define Agent image digest to use, takes precedence over tag if specified
     digest: ""

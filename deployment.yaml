@@ -25,14 +25,14 @@ spec:
         ad.datadoghq.com/stockprice-backend.instances: '[{"host": "%%host%%", "port": 80}]'
         # Container stdout/stderr (Serilog WriteTo.Console). File tailing inside the pod is brittle on K8s; JSON files remain for Docker volume shipping.
         # JSON on stdout (Serilog); env at top-level helps Logs ↔ Traces correlation in the UI
-        ad.datadoghq.com/stockprice-backend.logs: '[{"source":"csharp","service":"stock-price-api","env":"production","version":"1.0.0","tags":["sourcecategory:sourcecode"]}]'
+        ad.datadoghq.com/stockprice-backend.logs: '[{"source":"csharp","service":"stock-price-api","tags":["env:production","version:1.0.0","sourcecategory:sourcecode"]}]'
         ad.datadoghq.com/stockprice-backend.apm: 'true'
         admission.datadoghq.com/enabled: "true"
         admission.datadoghq.com/dotnet-lib.version: "latest"
     spec:
       containers:
         - name: stockprice-backend
-          image: stockprice-backend:latest
+          image: stockprice-backend:jsonlog
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -52,6 +52,12 @@ spec:
               value: "1.0.0"
             - name: DD_LOGS_INJECTION
               value: "true"
+            - name: DD_TRACE_LOGS_INJECTION
+              value: "true"
+            - name: DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED
+              value: "true"
+            - name: DD_TRACE_PROPAGATION_STYLE
+              value: "Datadog"
             - name: DD_TRACE_SAMPLE_RATE
               value: "1"
           volumeMounts:
@@ -86,7 +92,7 @@ spec:
         ad.datadoghq.com/stockprice-frontend.check_names: '["nginx"]'
         ad.datadoghq.com/stockprice-frontend.init_configs: '[{}]'
         ad.datadoghq.com/stockprice-frontend.instances: '[{"host": "%%host%%", "port": 80}]'
-        ad.datadoghq.com/stockprice-frontend.logs: '[{"source":"nginx","service":"stock-price-frontend","env":"production","version":"1.0.0"}]'
+        ad.datadoghq.com/stockprice-frontend.logs: '[{"source":"nginx","service":"stock-price-frontend","tags":["env:production","version:1.0.0"]}]'
         admission.datadoghq.com/enabled: "true"
         admission.datadoghq.com/js-lib.version: "latest"
     spec:
@@ -111,6 +117,9 @@ metadata:
   name: stockprice-db
   labels:
     app: stockprice-db
+    tags.datadoghq.com/env: "production"
+    tags.datadoghq.com/service: "stockprice-sqlserver"
+    tags.datadoghq.com/version: "1.0.0"
 spec:
   replicas: 1
   selector:
@@ -120,12 +129,14 @@ spec:
     metadata:
       labels:
         app: stockprice-db
+        tags.datadoghq.com/env: "production"
+        tags.datadoghq.com/service: "stockprice-sqlserver"
+        tags.datadoghq.com/version: "1.0.0"
       annotations:
         ad.datadoghq.com/stockprice-db.check_names: '["sqlserver"]'
         ad.datadoghq.com/stockprice-db.init_configs: '[{}]'
         ad.datadoghq.com/stockprice-db.instances: '[{"host": "%%host%%", "port": 1433}]'
-        ad.datadoghq.com/stockprice-db.logs: '[{"source": "sqlserver"}]'
-        ad.datadoghq.com/stockprice-db.tags: '[{"env": "production"}]'
+        ad.datadoghq.com/stockprice-db.logs: '[{"source":"sqlserver","service":"stockprice-sqlserver","tags":["env:production"]}]'
     spec:
       containers:
         - name: stockprice-db
@@ -181,3 +192,11 @@ spec:
       port: 1433
       targetPort: 1433
   type: ClusterIP
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+  labels:
+    tags.datadoghq.com/env: production
