@@ -1,3 +1,4 @@
+using Datadog.Trace;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StockPriceApi.Data;
@@ -7,7 +8,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using StockPriceApi.Models;
-using Serilog;
 
 public class StockPriceFetcherService : BackgroundService
 {
@@ -30,16 +30,19 @@ public class StockPriceFetcherService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            foreach (var symbol in _symbols)
+            using (Tracer.Instance.StartActive("stockprice.background.batch"))
             {
-                try
+                foreach (var symbol in _symbols)
                 {
-                    Log.Information("Stock price fetcher started");
-                    await FetchAndCacheStockPrice(symbol, stoppingToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Failed to fetch stock price for {symbol}");
+                    try
+                    {
+                        _logger.LogInformation("Stock price fetcher batch for {Symbol}", symbol);
+                        await FetchAndCacheStockPrice(symbol, stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to fetch stock price for {Symbol}", symbol);
+                    }
                 }
             }
 
@@ -50,8 +53,11 @@ public class StockPriceFetcherService : BackgroundService
 
     private async Task FetchAndCacheStockPrice(string symbol, CancellationToken stoppingToken)
     {
+        using var scope = Tracer.Instance.StartActive("stockprice.fetch_symbol");
+        scope.Span?.SetTag("symbol", symbol);
+
         var client = _httpClientFactory.CreateClient();
-        Log.Information("Fetching stock price for {Symbol}", symbol);
+        _logger.LogInformation("Fetching stock price for {Symbol}", symbol);
 
         var apiKey = symbol switch
         {
@@ -85,11 +91,11 @@ public class StockPriceFetcherService : BackgroundService
 
             _context.StockPrices.Add(stockPrice);
             await _context.SaveChangesAsync(stoppingToken);
-            Log.Information("Fetched stock price for {Symbol}", symbol);
+            _logger.LogInformation("Fetched stock price for {Symbol}", symbol);
         }
         else
         {
-            _logger.LogError($"Failed to fetch data from Alpha Vantage for {symbol}");
+            _logger.LogError("Failed to fetch data from Alpha Vantage for {Symbol}", symbol);
         }
     }
 }

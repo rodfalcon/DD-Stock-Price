@@ -5,7 +5,6 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { datadogRum } from '@datadog/browser-rum';
 import { datadogLogs } from '@datadog/browser-logs';
-import log from 'loglevel';
 
 const ddApplicationId =
   process.env.REACT_APP_DD_APPLICATION_ID || 'c3760513-419d-430d-8555-39e8e332d818';
@@ -68,11 +67,6 @@ datadogLogs.init({
   forwardErrorsToLogs: true,
   sampleRate: 100,
 });
-
-log.setLevel('info');
-
-log.info('This is an info message');
-log.error('This is an error message');
 
 const container = document.getElementById('root');
 const root = createRoot(container);
