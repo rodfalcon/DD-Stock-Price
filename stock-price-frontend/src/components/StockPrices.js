@@ -9,8 +9,14 @@ const StockPrices = () => {
     }, []);
 
     const fetchData = async () => {
+        const customBase = process.env.REACT_APP_BACKEND_URL?.replace(/\/$/, '');
+        const url = customBase
+            ? `${customBase}/api/stockprice/DDOG`
+            : typeof window !== 'undefined' && window.location?.origin
+              ? new URL('/api/stockprice/DDOG', window.location.origin).href
+              : '/api/stockprice/DDOG';
         try {
-            const response = await axios.get('http://localhost:5261/api/stockprice/DDOG');  // Your backend API
+            const response = await axios.get(url);
             console.log('Datadog data:', response.data);  // Logging the fetched data
 
             // Always wrap object in an array

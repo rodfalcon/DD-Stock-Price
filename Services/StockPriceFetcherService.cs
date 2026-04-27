@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StockPriceApi.Data;
-using StatsdClient;
 using System;
 using System.Net.Http;
 using System.Text.Json;
@@ -15,18 +14,16 @@ public class StockPriceFetcherService : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<StockPriceFetcherService> _logger;
     private readonly StockPriceContext _context;
-    private readonly IDogStatsd _dogStatsd;
     private readonly string[] _symbols = { "DDOG", "DT", "NEWR" };
     private readonly string _datadogApiKey = "JV0ISEJIQFVX14EH";
     private readonly string _dynatraceApiKey = "VWCZUT76ZA1ABBBS";
     private readonly string _newRelicApiKey = "SZC86PF7HA6YU3FG";
 
-    public StockPriceFetcherService(IHttpClientFactory httpClientFactory, ILogger<StockPriceFetcherService> logger, StockPriceContext context, IDogStatsd dogStatsd)
+    public StockPriceFetcherService(IHttpClientFactory httpClientFactory, ILogger<StockPriceFetcherService> logger, StockPriceContext context)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _context = context;
-        _dogStatsd = dogStatsd;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -89,7 +86,6 @@ public class StockPriceFetcherService : BackgroundService
             _context.StockPrices.Add(stockPrice);
             await _context.SaveChangesAsync(stoppingToken);
             Log.Information("Fetched stock price for {Symbol}", symbol);
-            _dogStatsd.Histogram("stock.price", (double)stockPrice.Price, tags: new[] { $"symbol:{stockPrice.Symbol}", "env:production", "service:stockpriceapi", "version:1.0" });
         }
         else
         {

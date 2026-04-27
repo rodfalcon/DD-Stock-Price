@@ -4,6 +4,9 @@ metadata:
   name: stockprice-backend
   labels:
     app: stockprice-backend
+    tags.datadoghq.com/env: "production"
+    tags.datadoghq.com/service: "stock-price-api"
+    tags.datadoghq.com/version: "1.0.0"
 spec:
   replicas: 1
   selector:
@@ -13,12 +16,16 @@ spec:
     metadata:
       labels:
         app: stockprice-backend
+        tags.datadoghq.com/env: "production"
+        tags.datadoghq.com/service: "stock-price-api"
+        tags.datadoghq.com/version: "1.0.0"
       annotations:
         ad.datadoghq.com/stockprice-backend.check_names: '["aspdotnet"]'
         ad.datadoghq.com/stockprice-backend.init_configs: '[{}]'
         ad.datadoghq.com/stockprice-backend.instances: '[{"host": "%%host%%", "port": 80}]'
-        ad.datadoghq.com/stockprice-backend.logs: '[{"source": "aspdotnet"}]'
-        ad.datadoghq.com/stockprice-backend.tags: '[{"env": "production"}]'
+        # Container stdout/stderr (Serilog WriteTo.Console). File tailing inside the pod is brittle on K8s; JSON files remain for Docker volume shipping.
+        # JSON on stdout (Serilog); env at top-level helps Logs ↔ Traces correlation in the UI
+        ad.datadoghq.com/stockprice-backend.logs: '[{"source":"csharp","service":"stock-price-api","env":"production","version":"1.0.0","tags":["sourcecategory:sourcecode"]}]'
         ad.datadoghq.com/stockprice-backend.apm: 'true'
         admission.datadoghq.com/enabled: "true"
         admission.datadoghq.com/dotnet-lib.version: "latest"
@@ -32,26 +39,27 @@ spec:
           env:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
+            # Admission injects DD_TRACE_AGENT_URL=unix:///var/run/datadog/apm.socket; on Docker Desktop + .NET
+            # the managed tracer often fails UDS (EADDRNOTAVAIL) and never reaches the agent. TCP to the in-cluster
+            # Agent service works and restores APM (RUM is unrelated—it sends straight to Datadog from the browser).
+            - name: DD_TRACE_AGENT_URL
+              value: "http://datadog.datadog.svc.cluster.local:8126"
             - name: DD_ENV
               value: "production"
             - name: DD_SERVICE
-              value: "stockprice-backend"
+              value: "stock-price-api"
             - name: DD_VERSION
               value: "1.0.0"
-            - name: CORECLR_ENABLE_PROFILING
-              value: "1"
-            - name: CORECLR_PROFILER
-              value: "{846F5F1C-F9AE-4B07-969E-05C26BC060D8}"
-            - name: CORECLR_PROFILER_PATH
-              value: "/opt/datadog/Datadog.Trace.ClrProfiler.Native.so"
-            - name: DD_INTEGRATIONS
-              value: "/opt/datadog/integrations.json"
-            - name: DD_DOTNET_TRACER_HOME
-              value: "/opt/datadog"
-            - name: DD_TRACE_DEBUG
-              value: "0"
+            - name: DD_LOGS_INJECTION
+              value: "true"
             - name: DD_TRACE_SAMPLE_RATE
               value: "1"
+          volumeMounts:
+            - name: app-logs
+              mountPath: /app/logs
+      volumes:
+        - name: app-logs
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -59,6 +67,9 @@ metadata:
   name: stockprice-frontend
   labels:
     app: stockprice-frontend
+    tags.datadoghq.com/env: "production"
+    tags.datadoghq.com/service: "stock-price-frontend"
+    tags.datadoghq.com/version: "1.0.0"
 spec:
   replicas: 1
   selector:
@@ -68,24 +79,30 @@ spec:
     metadata:
       labels:
         app: stockprice-frontend
+        tags.datadoghq.com/env: "production"
+        tags.datadoghq.com/service: "stock-price-frontend"
+        tags.datadoghq.com/version: "1.0.0"
       annotations:
         ad.datadoghq.com/stockprice-frontend.check_names: '["nginx"]'
         ad.datadoghq.com/stockprice-frontend.init_configs: '[{}]'
         ad.datadoghq.com/stockprice-frontend.instances: '[{"host": "%%host%%", "port": 80}]'
-        ad.datadoghq.com/stockprice-frontend.logs: '[{"source": "nginx"}]'
-        ad.datadoghq.com/stockprice-frontend.tags: '[{"env": "production"}]'
+        ad.datadoghq.com/stockprice-frontend.logs: '[{"source":"nginx","service":"stock-price-frontend","env":"production","version":"1.0.0"}]'
         admission.datadoghq.com/enabled: "true"
         admission.datadoghq.com/js-lib.version: "latest"
     spec:
       containers:
         - name: stockprice-frontend
-          image: stockprice-frontend:latest
+          image: stockprice-frontend:prod
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           env:
-            - name: REACT_APP_BACKEND_URL
-              value: "http://stockprice-backend-service:80"
+            - name: DD_ENV
+              value: "production"
+            - name: DD_SERVICE
+              value: "stock-price-frontend"
+            - name: DD_VERSION
+              value: "1.0.0"
 
 ---
 apiVersion: apps/v1
@@ -144,11 +161,12 @@ spec:
   selector:
     app: stockprice-frontend
   ports:
+    # Docker Desktop: LoadBalancer is published on localhost at this port (no port-forward).
+    # Standard cloud clusters need a real LB or use NodePort / Ingress instead.
     - protocol: TCP
-      port: 80
+      port: 8080
       targetPort: 80
-      nodePort: 30001  # You can specify a port number or let Kubernetes assign one
-  type: NodePort
+  type: LoadBalancer
 
 ---
 apiVersion: v1

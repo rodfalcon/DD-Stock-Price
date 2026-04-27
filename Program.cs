@@ -5,7 +5,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Formatting.Json;
-using Serilog.Sinks.Datadog.Logs;
 using StockPriceApi.Data; // Adjust the namespace to match your context
 
 namespace StockPriceApi
@@ -14,11 +13,11 @@ namespace StockPriceApi
     {
         public static void Main(string[] args)
         {
-            // Instantiate the logger
             Log.Logger = new LoggerConfiguration()
-            .WriteTo.Console()
-            .WriteTo.File(new JsonFormatter(renderMessage: true), "/app/logs/log.json", rollingInterval: RollingInterval.Day)
-            .CreateLogger();
+                .Enrich.FromLogContext()
+                .WriteTo.Console(new JsonFormatter(renderMessage: true))
+                .WriteTo.File(new JsonFormatter(renderMessage: true), "/app/logs/log.json", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
 
             try
             {
@@ -41,6 +40,7 @@ namespace StockPriceApi
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .UseSerilog()
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();

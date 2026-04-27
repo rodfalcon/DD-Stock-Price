@@ -3,8 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using StockPriceApi.Models;
-using StatsdClient;
 using StockPriceApi.Data;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
 
 public class Startup
@@ -18,23 +18,20 @@ public class Startup
 
 public void ConfigureServices(IServiceCollection services)
 {
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                | ForwardedHeaders.XForwardedProto
+                | ForwardedHeaders.XForwardedHost;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
         services.AddControllers();
         services.AddDbContext<StockPriceContext>(options =>
             options.UseSqlite(Configuration.GetConnectionString("StockPriceDatabase")));
 
         services.AddHttpClient();
-        services.AddSingleton<IDogStatsd, DogStatsdService>(sp =>
-        {
-            var config = new StatsdConfig
-            {
-                StatsdServerName = "datadog-agent",
-                StatsdPort = 8125,
-            };
-
-            var dogStatsdService = new DogStatsdService(config);
-
-            return dogStatsdService;
-        });
 
         // Register the StockPriceFetcherService as a hosted service
         services.AddHostedService<StockPriceFetcherService>();
@@ -60,6 +57,8 @@ public void ConfigureServices(IServiceCollection services)
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
+        app.UseForwardedHeaders();
+
         if (env.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();
