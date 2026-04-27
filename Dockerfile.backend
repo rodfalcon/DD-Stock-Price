@@ -1,52 +1,25 @@
-# Use the official ASP.NET Core runtime as a base image
-FROM mcr.microsoft.com/dotnet/nightly/aspnet:8.0 AS base
+# Supported: .NET 8 LTS on Debian Bookworm (linux-x64 / linux-arm64 via Datadog.Trace.Bundle)
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-bookworm-slim AS base
 WORKDIR /app
 EXPOSE 80
 
-# Create the log directory before running the app
 RUN mkdir -p /app/logs && chmod -R 777 /app/logs
 
-# Install curl, download and install the Tracer
-RUN apt-get update \
-    && apt-get install -y curl \
-    && mkdir -p /opt/datadog \
-    && mkdir -p /var/log/datadog \
-    && curl -LO https://github.com/DataDog/dd-trace-dotnet/releases/download/v3.2.0/datadog-dotnet-apm-3.2.0.arm64.tar.gz \
-    && tar -xzf datadog-dotnet-apm-3.2.0.arm64.tar.gz -C /opt/datadog \
-    && rm datadog-dotnet-apm-3.2.0.arm64.tar.gz \
-    # && TRACER_VERSION=$(curl -s https://api.github.com/repos/DataDog/dd-trace-dotnet/releases/latest | grep tag_name | cut -d '"' -f 4 | cut -c2-) \
-    # && curl -LO https://github.com/DataDog/dd-trace-dotnet/releases/download/v${TRACER_VERSION}/datadog-dotnet-apm-${TRACER_VERSION}.arm64.tar.gz \
-    # && tar -xzf ./datadog-dotnet-apm-${TRACER_VERSION}.arm64.tar.gz \
-    # && rm ./datadog-dotnet-apm-${TRACER_VERSION}.arm64.tar.gz \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-    # Enable the tracer
-ENV CORECLR_ENABLE_PROFILING=1 \
-    CORECLR_PROFILER="{846F5F1C-F9AE-4B07-969E-05C26BC060D8}" \
-    CORECLR_PROFILER_PATH="/opt/datadog/Datadog.Trace.ClrProfiler.Native.so" \
-    DD_INTEGRATIONS="/opt/datadog/integrations.json" \
-    DD_TRACE_DEBUG=1 \
-    DD_DOTNET_TRACER_HOME="/opt/datadog"
-
-ARG DD_GIT_REPOSITORY_URL
-ARG DD_GIT_COMMIT_SHA
-ENV DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL}
-ENV DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}
-
-# Use the official ASP.NET Core build image
-FROM mcr.microsoft.com/dotnet/nightly/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY StockPriceApi.csproj ./
 RUN dotnet restore "StockPriceApi.csproj"
 COPY . .
-WORKDIR /src
 RUN dotnet build "StockPriceApi.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "StockPriceApi.csproj" -c Release -o /app/publish
+RUN dotnet publish "StockPriceApi.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "StockPriceApi.dll"]
+RUN /app/datadog/createLogPath.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

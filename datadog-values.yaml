@@ -32,12 +32,14 @@ datadog:
   # datadog.apiKey -- Your Datadog API key
 
   ## ref: https://app.datadoghq.com/account/settings#agent/kubernetes
-  apiKey: 6a72f2702b75f7345316ba21a793b5d7
+  # Leave empty when using apiKeyExistingSecret (recommended). Create the secret from ~/sandbox.docker.env:
+  #   set -a && source ~/sandbox.docker.env && set +a && kubectl create secret generic datadog-agent-secrets -n datadog --from-literal=api-key="$DD_API_KEY" --dry-run=client -o yaml | kubectl apply -f -
+  apiKey: ""
 
   # datadog.apiKeyExistingSecret -- Use existing Secret which stores API key instead of creating a new one. The value should be set with the `api-key` key inside the secret.
 
   ## If set, this parameter takes precedence over "apiKey".
-  apiKeyExistingSecret: # <DATADOG_API_KEY_SECRET>
+  apiKeyExistingSecret: datadog-agent-secrets
 
   # datadog.appKey -- Datadog APP key required to use metricsProvider
 
@@ -422,7 +424,7 @@ datadog:
     # datadog.logs.enabled -- Enables this to activate Datadog Agent log collection
 
     ## ref: https://docs.datadoghq.com/agent/basic_agent_usage/kubernetes/#log-collection-setup
-    enabled: false
+    enabled: true
 
     # datadog.logs.containerCollectAll -- Enable this to allow log collection for all containers
 
@@ -438,7 +440,7 @@ datadog:
     # datadog.logs.autoMultiLineDetection -- Allows the Agent to detect common multi-line patterns automatically.
 
     ## ref: https://docs.datadoghq.com/agent/logs/advanced_log_collection/?tab=configurationfile#automatic-multi-line-aggregation
-    autoMultiLineDetection: false
+    autoMultiLineDetection: true
 
   ## Enable apm agent and provide custom configs
   ##
@@ -481,13 +483,15 @@ datadog:
     # This feature is in beta. It requires Cluster Agent 7.49+.
     instrumentation:
       # datadog.apm.instrumentation.enabled -- Enable injecting the Datadog APM libraries into all pods in the cluster (beta).
-      enabled: false
+      enabled: true
 
       # datadog.apm.instrumentation.enabledNamespaces -- Enable injecting the Datadog APM libraries into pods in specific namespaces (beta).
       enabledNamespaces: []
 
       # datadog.apm.instrumentation.disabledNamespaces -- Disable injecting the Datadog APM libraries into pods in specific namespaces (beta).
-      disabledNamespaces: []
+      disabledNamespaces:
+        - kube-system
+        - kube-public
 
       # datadog.apm.instrumentation.libVersions -- Inject specific version of tracing libraries with Single Step Instrumentation (beta).
       libVersions: {}
@@ -558,7 +562,12 @@ datadog:
 
   ## The Datadog Agent supports many environment variables.
   ## ref: https://docs.datadoghq.com/agent/docker/?tab=standard#environment-variables
-  env: []
+  ## Docker Desktop K8s: core agent may exit if hostname cannot be resolved; pin to node name.
+  env:
+    - name: DD_HOSTNAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
   #   - name: <ENV_VAR_NAME>
   #     value: <ENV_VAR_VALUE>
 
