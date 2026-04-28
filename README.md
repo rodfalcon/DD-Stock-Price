@@ -17,9 +17,64 @@ After startup, wait for at least one background fetch cycle (default **30 minute
 
 ---
 
+## Configure Datadog (do this before expecting telemetry)
+
+Three places must be set up on **your** machine or org. Nothing here contains real keys.
+
+### 1. Docker Compose: agent credentials file
+
+The **`datadog-agent`** service uses an **`env_file`** so the container receives your Datadog **API key** (and any other Agent vars you keep there):
+
+```yaml
+# docker-compose.yml (excerpt)
+env_file:
+  - ~/sandbox.docker.env
+```
+
+**You must create that file** (or change the path in `docker-compose.yml` to a file you control). At minimum the Agent expects something equivalent to:
+
+```bash
+DD_API_KEY=<your_datadog_api_key>
+```
+
+Use the same key style as in [Agent installation](https://docs.datadoghq.com/agent/). Without this file, Compose will fail to start the agent or the agent will not authenticate to Datadog.
+
+### 2. Kubernetes: API key and Helm secrets
+
+The sample **`datadog-values.yaml`** is wired for an **existing Secret** rather than committing a key:
+
+- **`datadog.apiKey`** is left empty.
+- **`datadog.apiKeyExistingSecret`** points at a Secret (e.g. `datadog-agent-secrets`) whose data includes the **`api-key`** key.
+
+Create the namespace and Secret before `helm upgrade`, for example (adjust namespace and secret name to match your values file):
+
+```bash
+kubectl create namespace datadog   # if you use namespace "datadog"
+set -a && source ~/path/to/your.env && set +a   # file containing DD_API_KEY
+kubectl create secret generic datadog-agent-secrets -n datadog \
+  --from-literal=api-key="$DD_API_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+See the comments at the top of **`datadog-values.yaml`** for the same pattern. You may also need an **app key** for some Cluster Agent features if you enable them; keep those in Secrets, not in git.
+
+### 3. RUM (browser): Datadog UI first, then the frontend
+
+**Real User Monitoring** is **not** enabled by pasting random strings into the repo:
+
+1. In the Datadog app, open **Digital Experience → Browser RUM** (or **UX Monitoring → RUM Applications**) and **create a RUM application** for this site.
+2. Copy the **Application ID** and **client token** Datadog shows for that application (and note your **site**, e.g. `datadoghq.com` vs `datadoghq.eu`).
+3. Put those values into the frontend in one of these ways:
+   - **Recommended:** pass **`REACT_APP_DD_APPLICATION_ID`**, **`REACT_APP_DD_CLIENT_TOKEN`**, **`REACT_APP_DD_SITE`** (and optionally **`REACT_APP_DD_ENV`**, **`REACT_APP_DD_VERSION`**) as **build arguments** when building the Docker image (see **`Dockerfile.frontend`**), or set them in your shell / `.env` before `npm start` for local dev.
+   - **Alternatively:** edit the defaults in **`stock-price-frontend/src/index.js`** (they are read from `process.env.REACT_APP_*` with fallbacks). Treat fallbacks as placeholders only; **do not commit real client tokens** to public repos.
+
+Until RUM is configured, the rest of the app still runs; you simply will not see browser sessions in RUM.
+
+---
+
 ## Run with Docker Compose (local)
 
-**Prerequisites:** Docker, and an env file (this repo’s `docker-compose.yml` references `~/sandbox.docker.env`) with your **Datadog API key** for the agent. Adjust the path or use another secret mechanism if you prefer.
+**Prerequisites:** Docker, and the **`env_file`** described in [Docker Compose: agent credentials file](#1-docker-compose-agent-credentials-file) so the Datadog Agent can start.
 
 1. Build and start:
 
@@ -42,7 +97,7 @@ After startup, wait for at least one background fetch cycle (default **30 minute
 
 ## Run on Kubernetes (e.g. Docker Desktop)
 
-**Prerequisites:** `kubectl`, cluster access, **Datadog Agent** installed (Helm + `datadog-values.yaml` in this repo), API key supplied via a **Secret** (for example the chart’s expected secret name for your environment).
+**Prerequisites:** `kubectl`, cluster access, **Datadog Agent** installed with Helm using **`datadog-values.yaml`**, and a **Kubernetes Secret** with your API key as described in [Kubernetes: API key and Helm secrets](#2-kubernetes-api-key-and-helm-secrets).
 
 1. Build images locally (tags must match `deployment.yaml`):
 
@@ -79,9 +134,9 @@ After startup, wait for at least one background fetch cycle (default **30 minute
 - **Log Explorer:** filter with `service:stock-price-api`, `source:csharp`, or `env:production` (adjust for your env). Include **Info** as well as **Error** if you expect normal request logs.
 - **Logs ↔ traces:** Use structured JSON logs, `DD_LOGS_INJECTION` / `DD_TRACE_LOGS_INJECTION`, consistent `DD_ENV` / `DD_SERVICE` / `DD_VERSION`, and (for background work) **active spans** around work you want tied to traces—see `deployment.yaml`, `Startup.cs`, and `Services/StockPriceFetcherService.cs`.
 
-Screenshot from Datadog **Log Explorer** (structured `stock-price-api` log with service, cluster, and trace-friendly fields):
+Screenshot from Datadog **APM** (trace flame graph with frontend → API → DB spans, and **Logs** linked to the same trace—here a `404` when no row exists yet for a symbol):
 
-![Datadog Log Explorer – stock-price-api logs](docs/images/datadog-log-explorer-correlation.png)
+![Datadog APM trace with correlated logs (stock-price-frontend → stock-price-api)](docs/images/datadog-apm-trace-logs-correlation.png)
 
 ---
 
@@ -148,6 +203,7 @@ Deployment and pod labels use **`tags.datadoghq.com/env`**, **`service`**, **`ve
 | `datadog-values.yaml` | Example Helm values (SSI, APM, ASM flags as configured) |
 | `docker-compose.yml` | Local stack with agent, frontend, backend, SQL optional |
 | `stock-price-frontend/` | React app served via nginx in production image |
+| `stock-price-frontend/src/index.js` | Datadog Browser RUM + Logs init (`REACT_APP_DD_*` or local defaults) |
 
 ---
 
