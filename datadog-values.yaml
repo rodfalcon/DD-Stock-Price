@@ -495,7 +495,7 @@ datadog:
         - kube-system
         - kube-public
 
-      # "latest" is valid for SSI init images; for .NET, keep Datadog.Trace.Bundle in StockPriceApi.csproj on the same tracer line or you risk native/managed mismatch.
+      # "latest" is valid for SSI init images; align Datadog.Trace (NuGet) major/minor with injected tracer when using custom spans.
       libVersions:
         dotnet: "latest"
         js: "latest"
