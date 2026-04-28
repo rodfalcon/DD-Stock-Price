@@ -495,7 +495,7 @@ datadog:
         - kube-system
         - kube-public
 
-      # "latest" is valid for SSI init images; align Datadog.Trace (NuGet) major/minor with injected tracer when using custom spans.
+      # "latest" is valid for SSI init images (tracer comes from injection, not app NuGet).
       libVersions:
         dotnet: "latest"
         js: "latest"

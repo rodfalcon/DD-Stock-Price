@@ -31,7 +31,8 @@ spec:
     spec:
       containers:
         - name: stockprice-backend
-          image: stockprice-backend:jsonlog
+          # Bump tag after rebuilds so local K8s does not keep an old digest for a reused name.
+          image: stockprice-backend:no-manual-trace
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

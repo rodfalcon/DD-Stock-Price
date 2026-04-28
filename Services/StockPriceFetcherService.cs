@@ -1,4 +1,3 @@
-using Datadog.Trace;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StockPriceApi.Data;
@@ -30,32 +29,25 @@ public class StockPriceFetcherService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            using (Tracer.Instance.StartActive("stockprice.background.batch"))
+            foreach (var symbol in _symbols)
             {
-                foreach (var symbol in _symbols)
+                try
                 {
-                    try
-                    {
-                        _logger.LogInformation("Stock price fetcher batch for {Symbol}", symbol);
-                        await FetchAndCacheStockPrice(symbol, stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to fetch stock price for {Symbol}", symbol);
-                    }
+                    _logger.LogInformation("Stock price fetcher batch for {Symbol}", symbol);
+                    await FetchAndCacheStockPrice(symbol, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to fetch stock price for {Symbol}", symbol);
                 }
             }
 
-            // Wait for 30 minutes before fetching the stock prices again
             await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
         }
     }
 
     private async Task FetchAndCacheStockPrice(string symbol, CancellationToken stoppingToken)
     {
-        using var scope = Tracer.Instance.StartActive("stockprice.fetch_symbol");
-        scope.Span?.SetTag("symbol", symbol);
-
         var client = _httpClientFactory.CreateClient();
         _logger.LogInformation("Fetching stock price for {Symbol}", symbol);
 

@@ -2,6 +2,10 @@
 
 Sample **ASP.NET Core** API plus **React** frontend that loads observability data into **Datadog** (logs, APM traces, unified service tagging, optional RUM). A background worker periodically pulls quotes for **DDOG**, **DT**, and **NEWR** from Alpha Vantage and stores them in **SQLite** (`stockprices.db`).
 
+**Stock Prices Dashboard** (React UI preview):
+
+![Stock Prices Dashboard – competitor quotes table](docs/images/stock-prices-dashboard-preview.png)
+
 ---
 
 ## What you can do in the app
@@ -102,7 +106,7 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 1. Build images locally (tags must match `deployment.yaml`):
 
    ```bash
-   docker build -f Dockerfile.backend -t stockprice-backend:jsonlog .
+   docker build -f Dockerfile.backend -t stockprice-backend:no-manual-trace .
    docker build -f Dockerfile.frontend -t stockprice-frontend:prod .
    ```
 
@@ -119,12 +123,13 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 4. After **backend** code or Dockerfile changes, rebuild and roll the deployment:
 
    ```bash
-   docker build -f Dockerfile.backend -t stockprice-backend:jsonlog .
+   docker build -f Dockerfile.backend -t stockprice-backend:no-manual-trace .
+   kubectl apply -f deployment.yaml
    kubectl rollout restart deployment/stockprice-backend
    kubectl rollout status deployment/stockprice-backend
    ```
 
-   **Same-tag image caching:** With `imagePullPolicy: IfNotPresent`, **Docker Desktop Kubernetes** can keep running an **older digest** for `stockprice-backend:jsonlog` even after you rebuild locally. If behavior or tracer files look stale, delete the pod (`kubectl delete pod -l app=stockprice-backend`) or use a **new tag** in the manifest and rebuild with that tag. In production, prefer a registry with immutable tags or `imagePullPolicy: Always` where appropriate.
+   **Image caching:** With `imagePullPolicy: IfNotPresent`, **Docker Desktop Kubernetes** can keep an **older digest** for the same tag. This repo sets the backend image tag in **`deployment.yaml`** (currently `stockprice-backend:no-manual-trace`); **bump that tag** whenever you need to force a fresh image locally, or delete the pod after rebuild. In production, prefer a registry with immutable tags or `imagePullPolicy: Always` where appropriate.
 
 ---
 
@@ -132,7 +137,7 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 
 - **Services:** `stock-price-api` (API), `stock-price-frontend` (UI), plus cluster/agent services.
 - **Log Explorer:** filter with `service:stock-price-api`, `source:csharp`, or `env:production` (adjust for your env). Include **Info** as well as **Error** if you expect normal request logs.
-- **Logs ↔ traces:** Use structured JSON logs, `DD_LOGS_INJECTION` / `DD_TRACE_LOGS_INJECTION`, consistent `DD_ENV` / `DD_SERVICE` / `DD_VERSION`, and (for background work) **active spans** around work you want tied to traces—see `deployment.yaml`, `Startup.cs`, and `Services/StockPriceFetcherService.cs`.
+- **Logs ↔ traces:** Use structured JSON logs, `DD_LOGS_INJECTION` / `DD_TRACE_LOGS_INJECTION`, and consistent `DD_ENV` / `DD_SERVICE` / `DD_VERSION`. HTTP requests are traced automatically via **SSI**; there is **no** `Datadog.Trace` NuGet package or manual spans in this app—see `deployment.yaml` and `Startup.cs`.
 
 Screenshot from Datadog **APM** (trace flame graph with frontend → API → DB spans, and **Logs** linked to the same trace—here a `404` when no row exists yet for a symbol):
 
@@ -160,9 +165,7 @@ Two different things were conflated:
 
 So the UI could show injection metadata for one version while files under `/app/datadog` still reflected an **older publish**. Upgrading “latest” in Helm does **not** rewrite files already baked into an old app image.
 
-**Resolution:** Stop shipping the bundle in the image and rely on **SSI for the native profiler**, while keeping the **`Datadog.Trace`** NuGet package only for **managed APIs** (e.g. `Tracer.Instance.StartActive` in the background fetcher). The image no longer contains `/app/datadog` from NuGet; **`Dockerfile.backend`** creates `/var/log/datadog/dotnet` for tracer log paths, and **`docker-entrypoint.sh`** just runs `dotnet`; **Kubernetes** sets `CORECLR_*` via injection before the process starts.
-
-Align the **`Datadog.Trace`** package version (major/minor) with the tracer line your cluster injects when you care about custom spans and profiler compatibility.
+**Resolution:** Stop shipping the bundle in the image and rely on **SSI for the native profiler** only—no **`Datadog.Trace`** NuGet dependency. The image does not contain `/app/datadog` from NuGet; **`Dockerfile.backend`** creates `/var/log/datadog/dotnet` for tracer log paths, and **`docker-entrypoint.sh`** just runs `dotnet`; **Kubernetes** sets `CORECLR_*` via injection before the process starts.
 
 ### 3. Unix domain socket vs TCP for traces (Docker Desktop)
 
@@ -185,7 +188,7 @@ Deployment and pod labels use **`tags.datadoghq.com/env`**, **`service`**, **`ve
 
 | Change | Typical action |
 |--------|----------------|
-| C# code or NuGet | Rebuild image, `kubectl rollout restart deployment/stockprice-backend` |
+| Backend C# code | Rebuild image, `kubectl apply -f deployment.yaml`, restart rollout |
 | Dockerfile / entrypoint | Same |
 | Helm values (SSI, `libVersions`) | `helm upgrade ...` for the Agent release, watch Cluster Agent / admission |
 | Stale image on local K8s | New tag or delete pod; see **Same-tag image caching** above |
@@ -197,7 +200,7 @@ Deployment and pod labels use **`tags.datadoghq.com/env`**, **`service`**, **`ve
 | Path | Role |
 |------|------|
 | `StockPriceApi.csproj`, `Program.cs`, `Startup.cs` | .NET 8 API, Serilog JSON to stdout |
-| `Services/StockPriceFetcherService.cs` | Background fetch; custom Datadog spans via `Datadog.Trace` |
+| `Services/StockPriceFetcherService.cs` | Background Alpha Vantage fetch (no manual APM API) |
 | `Dockerfile.backend`, `docker-entrypoint.sh` | Backend image; entrypoint assumes SSI on K8s |
 | `deployment.yaml` | Backend, frontend, DB, Services, Datadog-related env and annotations |
 | `datadog-values.yaml` | Example Helm values (SSI, APM, ASM flags as configured) |
