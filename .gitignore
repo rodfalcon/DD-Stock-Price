@@ -1,0 +1,9 @@
+# Build
+[Bb]in/
+[Oo]bj/
+out/
+
+# IDE / OS
+.vs/
+*.user
+.DS_Store

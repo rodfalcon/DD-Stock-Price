@@ -9,6 +9,7 @@ services:
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
       - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
       - DD_ENV=dev
       - DD_APPSEC_ENABLED=true
       - DD_IAST_ENABLED=true
@@ -22,6 +23,7 @@ services:
       - backend-logs:/app/logs:ro  # Volume to access backend logs
     ports:
       - "8126:8126"
+      - "8125:8125/udp"
     labels:
       com.datadoghq.ad.logs: '[{"source": "datadog-agent", "service": "datadog-agent"}]'
     networks:
@@ -68,6 +70,8 @@ services:
       - DD_LOGS_INJECTION=true
       - DD_TRACE_SAMPLE_RATE=1
       - DD_TAGS="machine:macOSX"
+      - DOGSTATSD_HOST=datadog-agent
+      - DOGSTATSD_PORT=8125
     volumes:
       - backend-logs:/app/logs  # Share logs directory
     labels:

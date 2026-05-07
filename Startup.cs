@@ -33,8 +33,11 @@ public void ConfigureServices(IServiceCollection services)
 
         services.AddHttpClient();
 
-        // Register the StockPriceFetcherService as a hosted service
+        // DogStatsd before any other hosted services that emit metrics (same order = start order).
+        services.AddHostedService<DogStatsdConfigurationService>();
+        services.AddSingleton<IStockQuoteTelemetry, StockQuoteDogStatsdTelemetry>();
         services.AddHostedService<StockPriceFetcherService>();
+        services.AddHostedService<StockPriceGaugeHeartbeatService>();
 
         services.AddCors(options =>
         {

@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using StockPriceApi.Data;
-using Serilog;
 using StockPriceApi.Models;
 
 namespace StockPriceApi.Controllers
@@ -16,17 +15,19 @@ namespace StockPriceApi.Controllers
     {
         private readonly StockPriceContext _context;
         private readonly ILogger<StockPriceController> _logger;
+        private readonly IStockQuoteTelemetry _quoteTelemetry;
 
-        public StockPriceController(StockPriceContext context, ILogger<StockPriceController> logger)
+        public StockPriceController(StockPriceContext context, ILogger<StockPriceController> logger, IStockQuoteTelemetry quoteTelemetry)
         {
             _context = context;
             _logger = logger;
+            _quoteTelemetry = quoteTelemetry;
         }
 
         [HttpGet("{symbol}")]
         public async Task<IActionResult> GetStockPrice(string symbol)
         {
-            Log.Information("Fetching stock price for {Symbol}", symbol);
+            _logger.LogInformation("api stock quote lookup symbol={Symbol}", symbol);
             var stockPrice = await _context.StockPrices
                 .Where(sp => sp.Symbol == symbol)
                 .OrderByDescending(sp => sp.Timestamp)
@@ -34,10 +35,17 @@ namespace StockPriceApi.Controllers
 
             if (stockPrice == null)
             {
-                Log.Warning("Stock price for {Symbol} not found", symbol);
+                _logger.LogWarning("stock_quote.not_found symbol={Symbol}", symbol);
                 return NotFound();
             }
-            Log.Information("Fetched stock price: {StockPrice}", stockPrice);
+
+            _logger.LogInformation(
+                "stock_quote.returned channel={Channel} symbol={Symbol} stock_price_usd={StockPriceUsd:F4}",
+                "http_single",
+                symbol,
+                stockPrice.Price);
+            _quoteTelemetry.RecordLatestUsdPrice(symbol, stockPrice.Price, "http_single");
+
             return Ok(stockPrice);
         }
 
@@ -50,6 +58,17 @@ namespace StockPriceApi.Controllers
                 .GroupBy(sp => sp.Symbol)
                 .Select(g => g.OrderByDescending(sp => sp.Timestamp).FirstOrDefault())
                 .ToListAsync();
+
+            foreach (var row in latestPrices)
+            {
+                if (row == null) continue;
+                _quoteTelemetry.RecordLatestUsdPrice(row.Symbol, row.Price, "http_competitors");
+            }
+
+            _logger.LogInformation(
+                "stock_quote.competitors_returned channel={Channel} count={Count}",
+                "http_competitors",
+                latestPrices.Count);
 
             return Ok(latestPrices);
         }

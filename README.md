@@ -106,7 +106,7 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 1. Build images locally (tags must match `deployment.yaml`):
 
    ```bash
-   docker build -f Dockerfile.backend -t stockprice-backend:no-manual-trace .
+   docker build -f Dockerfile.backend -t stockprice-backend:quote-metrics .
    docker build -f Dockerfile.frontend -t stockprice-frontend:prod .
    ```
 
@@ -123,13 +123,13 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 4. After **backend** code or Dockerfile changes, rebuild and roll the deployment:
 
    ```bash
-   docker build -f Dockerfile.backend -t stockprice-backend:no-manual-trace .
+   docker build -f Dockerfile.backend -t stockprice-backend:quote-metrics .
    kubectl apply -f deployment.yaml
    kubectl rollout restart deployment/stockprice-backend
    kubectl rollout status deployment/stockprice-backend
    ```
 
-   **Image caching:** With `imagePullPolicy: IfNotPresent`, **Docker Desktop Kubernetes** can keep an **older digest** for the same tag. This repo sets the backend image tag in **`deployment.yaml`** (currently `stockprice-backend:no-manual-trace`); **bump that tag** whenever you need to force a fresh image locally, or delete the pod after rebuild. In production, prefer a registry with immutable tags or `imagePullPolicy: Always` where appropriate.
+   **Image caching:** With `imagePullPolicy: IfNotPresent`, **Docker Desktop Kubernetes** can keep an **older digest** for the same tag. This repo sets the backend image tag in **`deployment.yaml`** (currently `stockprice-backend:quote-metrics`); **bump that tag** whenever you need to force a fresh image locally, or delete the pod after rebuild. In production, prefer a registry with immutable tags or `imagePullPolicy: Always` where appropriate.
 
 ---
 
@@ -137,6 +137,8 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 
 - **Services:** `stock-price-api` (API), `stock-price-frontend` (UI), plus cluster/agent services.
 - **Log Explorer:** filter with `service:stock-price-api`, `source:csharp`, or `env:production` (adjust for your env). Include **Info** as well as **Error** if you expect normal request logs.
+- **Custom metrics (stock price):** The API emits **DogStatsd** gauges and counters (e.g. **`stock_price.latest`** in USD per `symbol`, **`stock_price.observation`**, **`stock_price.fetch.error`**). In Kubernetes, **`deployment.yaml`** sets **`DOGSTATSD_HOST`** / **`DOGSTATSD_PORT`** toward the Datadog Agent Service; ensure the Helm chart exposes **UDP 8125** (see [DogStatsD on Kubernetes](https://docs.datadoghq.com/agent/kubernetes/dogstatsd/)). Docker Compose maps **`8125/udp`** on the agent and sets the same env vars on **`backend`**.
+
 - **Logs ↔ traces:** Use structured JSON logs, `DD_LOGS_INJECTION` / `DD_TRACE_LOGS_INJECTION`, and consistent `DD_ENV` / `DD_SERVICE` / `DD_VERSION`. HTTP requests are traced automatically via **SSI**; there is **no** `Datadog.Trace` NuGet package or manual spans in this app—see `deployment.yaml` and `Startup.cs`.
 
 Screenshot from Datadog **APM** (trace flame graph with frontend → API → DB spans, and **Logs** linked to the same trace—here a `404` when no row exists yet for a symbol):
@@ -201,6 +203,7 @@ Deployment and pod labels use **`tags.datadoghq.com/env`**, **`service`**, **`ve
 |------|------|
 | `StockPriceApi.csproj`, `Program.cs`, `Startup.cs` | .NET 8 API, Serilog JSON to stdout |
 | `Services/StockPriceFetcherService.cs` | Background Alpha Vantage fetch (no manual APM API) |
+| `Services/DogStatsdConfigurationService.cs`, `Services/StockQuoteDogStatsdTelemetry.cs` | DogStatsd client + stock price gauges/counters |
 | `Dockerfile.backend`, `docker-entrypoint.sh` | Backend image; entrypoint assumes SSI on K8s |
 | `deployment.yaml` | Backend, frontend, DB, Services, Datadog-related env and annotations |
 | `datadog-values.yaml` | Example Helm values (SSI, APM, ASM flags as configured) |

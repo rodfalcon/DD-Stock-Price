@@ -330,6 +330,9 @@ datadog:
     # datadog.dogstatsd.useSocketVolume -- Enable dogstatsd over Unix Domain Socket with an HostVolume
 
     ## ref: https://docs.datadoghq.com/developers/dogstatsd/unix_socket/
+    # App pods in this repo send DogStatsD over UDP to the Agent Service (see deployment.yaml DOGSTATSD_*).
+    # If custom metrics never appear, try useSocketVolume: false so UDP 8125 is available on the Agent Service,
+    # or mount the DogStatsD UDS into your workload per Datadog docs.
     useSocketVolume: true
 
     # datadog.dogstatsd.socketPath -- Path to the DogStatsD socket

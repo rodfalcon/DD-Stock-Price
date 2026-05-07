@@ -32,7 +32,7 @@ spec:
       containers:
         - name: stockprice-backend
           # Bump tag after rebuilds so local K8s does not keep an old digest for a reused name.
-          image: stockprice-backend:no-manual-trace
+          image: stockprice-backend:heartbeat-schedule
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -60,6 +60,20 @@ spec:
               value: "Datadog"
             - name: DD_TRACE_SAMPLE_RATE
               value: "1"
+            # DogStatsd custom metrics (e.g. stock_price.latest). Point at Agent service UDP port.
+            - name: DOGSTATSD_HOST
+              value: datadog.datadog.svc.cluster.local
+            - name: DOGSTATSD_PORT
+              value: "8125"
+            # Real quotes: https://www.alphavantage.co/support/#api-key — set via secret in production.
+            - name: ALPHA_VANTAGE_API_KEY
+              value: ""
+            # ~8 batches/day × 3 symbols ≈ 24 Alpha Vantage calls (within typical 25/day free cap).
+            - name: AlphaVantage__FetchIntervalHours
+              value: "3"
+            # DogStatsd: repeat last SQLite price without calling Alpha Vantage.
+            - name: StockPrice__GaugeHeartbeatMinutes
+              value: "15"
           volumeMounts:
             - name: app-logs
               mountPath: /app/logs
