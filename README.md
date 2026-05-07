@@ -1,10 +1,53 @@
 # DD-Stock-Price
 
-Sample **ASP.NET Core** API plus **React** frontend that loads observability data into **Datadog** (logs, APM traces, unified service tagging, optional RUM). A background worker periodically pulls quotes for **DDOG**, **DT**, and **NEWR** from Alpha Vantage and stores them in **SQLite** (`stockprices.db`).
+Sample **ASP.NET Core** API plus **React** frontend that loads observability data into **Datadog** (logs, APM traces, unified service tagging, optional RUM). A background worker pulls quotes for **DDOG**, **DT**, and **NEWR** from **[Alpha Vantage](#alpha-vantage-how-quotes-work)** and stores them in **SQLite** (`stockprices.db`).
 
 **Stock Prices Dashboard** (React UI preview):
 
 ![Stock Prices Dashboard – competitor quotes table](docs/images/stock-prices-dashboard-preview.png)
+
+---
+
+## Alpha Vantage: how quotes work
+
+This backend talks to **[Alpha Vantage](https://www.alphavantage.co/)**, a hosted market-data API over HTTPS. Nothing is scraped from brokerage sites—you call an official REST endpoint with **your API key**.
+
+### Request shape (what this repo calls)
+
+For each ticker the background service calls **`GLOBAL_QUOTE`**, effectively:
+
+`/query?function=GLOBAL_QUOTE&symbol=<SYMBOL>&apikey=<YOUR_KEY>`
+
+When the key is valid and within quota, the JSON response includes **`Global Quote`** with fields such as latest price and volume; the worker maps those into the `StockPrices` table and emits DogStatsd metrics (`stock_price.latest`, etc.). If the key is missing, invalid, or over the provider’s quota, Alpha Vantage often returns **`Information`** or **`Note`** text instead—there is no **`Global Quote`**—so the worker records `alphavantage.no_quote` and increments **`stock_price.fetch.error`** (see `reason` tags in Datadog).
+
+Limits depend on Alpha Vantage’s **current** plan (free tiers often impose a strict **daily** request cap). To reduce burn on a tiny cap this repo waits **`AlphaVantage:FetchIntervalHours`** between **full passes** over all symbols (see `appsettings.json`; default **3** hours ⇒ about eight passes × three symbols ⇒ about **24** API calls per day).
+
+### Getting your API key
+
+1. Open **[Alpha Vantage — claim your API key](https://www.alphavantage.co/support/#api-key)** (or start from their site → support / pricing).
+2. Complete their sign-up (“Get Your Free API Key Today” flow). They email or display a single **personal API key**.
+3. **Do not commit that key.** Treat it like any third-party credential.
+
+### Putting the key where the app reads it
+
+The worker resolves **one shared key** for all symbols (not the legacy per-ticker placeholders), in this order:
+
+1. Environment variable **`ALPHA_VANTAGE_API_KEY`** (recommended in Kubernetes and Docker Compose).
+2. Configuration **`AlphaVantage:ApiKey`** (for local overrides; prefer **User Secrets** or env instead of committing values).
+
+**Kubernetes:** `deployment.yaml` includes **`ALPHA_VANTAGE_API_KEY`** with an empty placeholder. For a production-style setup, store the key in a **Secret** and wire the pod to set `ALPHA_VANTAGE_API_KEY` from `secretKeyRef`. Example:
+
+```bash
+kubectl create secret generic alphavantage-credentials \
+  --from-literal=api-key='YOUR_ALPHA_VANTAGE_KEY' \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Point the deployment at that secret’s `api-key` field (same pattern as other app secrets you already use).
+
+**Docker Compose:** add to the `backend` service, for example `ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}`, and export the variable from your shell or a **local** env file that is not in git.
+
+**Metrics between live fetches:** once rows exist in SQLite, a separate heartbeat job can re-send the **last stored** price as a **`stock_price.latest`** gauge on a timer (**`StockPrice:GaugeHeartbeatMinutes`**), tagged with `channel:database_heartbeat`. That keeps Datadog charts filled without additional Alpha Vantage requests.
 
 ---
 
@@ -17,7 +60,7 @@ Sample **ASP.NET Core** API plus **React** frontend that loads observability dat
 | Inspect one symbol | `GET /api/StockPrice/{symbol}` (e.g. `DDOG`) returns the latest row or `404` if none yet. |
 | Comparisons | `GET /api/StockPrice/compare/{symbol}` returns price deltas over several windows. |
 
-After startup, wait for at least one background fetch cycle (default **30 minutes**) or hit the API once data exists; until then, single-symbol GETs may return **404**.
+After startup, wait for at least one background fetch cycle (**`AlphaVantage:FetchIntervalHours`**, default **3** hours) or hit the API once data exists; until then, single-symbol GETs may return **404**.
 
 ---
 
@@ -106,7 +149,7 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 1. Build images locally (tags must match `deployment.yaml`):
 
    ```bash
-   docker build -f Dockerfile.backend -t stockprice-backend:quote-metrics .
+   docker build -f Dockerfile.backend -t stockprice-backend:heartbeat-schedule .
    docker build -f Dockerfile.frontend -t stockprice-frontend:prod .
    ```
 
@@ -123,13 +166,13 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 4. After **backend** code or Dockerfile changes, rebuild and roll the deployment:
 
    ```bash
-   docker build -f Dockerfile.backend -t stockprice-backend:quote-metrics .
+   docker build -f Dockerfile.backend -t stockprice-backend:heartbeat-schedule .
    kubectl apply -f deployment.yaml
    kubectl rollout restart deployment/stockprice-backend
    kubectl rollout status deployment/stockprice-backend
    ```
 
-   **Image caching:** With `imagePullPolicy: IfNotPresent`, **Docker Desktop Kubernetes** can keep an **older digest** for the same tag. This repo sets the backend image tag in **`deployment.yaml`** (currently `stockprice-backend:quote-metrics`); **bump that tag** whenever you need to force a fresh image locally, or delete the pod after rebuild. In production, prefer a registry with immutable tags or `imagePullPolicy: Always` where appropriate.
+   **Image caching:** With `imagePullPolicy: IfNotPresent`, **Docker Desktop Kubernetes** can keep an **older digest** for the same tag. This repo sets the backend image tag in **`deployment.yaml`** (e.g. `stockprice-backend:heartbeat-schedule`); **bump that tag** whenever you need to force a fresh image locally, or delete the pod after rebuild. In production, prefer a registry with immutable tags or `imagePullPolicy: Always` where appropriate.
 
 ---
 
@@ -137,7 +180,7 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 
 - **Services:** `stock-price-api` (API), `stock-price-frontend` (UI), plus cluster/agent services.
 - **Log Explorer:** filter with `service:stock-price-api`, `source:csharp`, or `env:production` (adjust for your env). Include **Info** as well as **Error** if you expect normal request logs.
-- **Custom metrics (stock price):** The API emits **DogStatsd** gauges and counters (e.g. **`stock_price.latest`** in USD per `symbol`, **`stock_price.observation`**, **`stock_price.fetch.error`**). In Kubernetes, **`deployment.yaml`** sets **`DOGSTATSD_HOST`** / **`DOGSTATSD_PORT`** toward the Datadog Agent Service; ensure the Helm chart exposes **UDP 8125** (see [DogStatsD on Kubernetes](https://docs.datadoghq.com/agent/kubernetes/dogstatsd/)). Docker Compose maps **`8125/udp`** on the agent and sets the same env vars on **`backend`**.
+- **Custom metrics (stock price):** The API emits **DogStatsd** gauges and counters (e.g. **`stock_price.latest`** in USD with **`company:`** and **`symbol:`** tags, **`stock_price.observation`**, **`stock_price.fetch.attempt`**, **`stock_price.fetch.error`** with **`reason:`**). In Kubernetes, **`deployment.yaml`** sets **`DOGSTATSD_HOST`** / **`DOGSTATSD_PORT`** toward the Datadog Agent Service; ensure the Helm chart exposes **UDP 8125** (see [DogStatsD on Kubernetes](https://docs.datadoghq.com/agent/kubernetes/dogstatsd/)). Docker Compose maps **`8125/udp`** on the agent and sets the same env vars on **`backend`**.
 
 - **Logs ↔ traces:** Use structured JSON logs, `DD_LOGS_INJECTION` / `DD_TRACE_LOGS_INJECTION`, and consistent `DD_ENV` / `DD_SERVICE` / `DD_VERSION`. HTTP requests are traced automatically via **SSI**; there is **no** `Datadog.Trace` NuGet package or manual spans in this app—see `deployment.yaml` and `Startup.cs`.
 
@@ -202,7 +245,8 @@ Deployment and pod labels use **`tags.datadoghq.com/env`**, **`service`**, **`ve
 | Path | Role |
 |------|------|
 | `StockPriceApi.csproj`, `Program.cs`, `Startup.cs` | .NET 8 API, Serilog JSON to stdout |
-| `Services/StockPriceFetcherService.cs` | Background Alpha Vantage fetch (no manual APM API) |
+| `Services/StockPriceFetcherService.cs` | Background Alpha Vantage fetch (scheduled by `AlphaVantage:FetchIntervalHours`) |
+| `Services/StockPriceGaugeHeartbeatService.cs` | Re-sends last SQLite prices as gauges (`database_heartbeat`) |
 | `Services/DogStatsdConfigurationService.cs`, `Services/StockQuoteDogStatsdTelemetry.cs` | DogStatsd client + stock price gauges/counters |
 | `Dockerfile.backend`, `docker-entrypoint.sh` | Backend image; entrypoint assumes SSI on K8s |
 | `deployment.yaml` | Backend, frontend, DB, Services, Datadog-related env and annotations |
