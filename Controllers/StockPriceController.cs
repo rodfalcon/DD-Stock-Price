@@ -45,6 +45,7 @@ namespace StockPriceApi.Controllers
                 symbol,
                 stockPrice.Price);
             _quoteTelemetry.RecordLatestUsdPrice(symbol, stockPrice.Price, "http_single");
+            _quoteTelemetry.RecordChangePercentGauge(symbol, stockPrice.ChangePercent, "http_single");
 
             return Ok(stockPrice);
         }
@@ -63,6 +64,7 @@ namespace StockPriceApi.Controllers
             {
                 if (row == null) continue;
                 _quoteTelemetry.RecordLatestUsdPrice(row.Symbol, row.Price, "http_competitors");
+                _quoteTelemetry.RecordChangePercentGauge(row.Symbol, row.ChangePercent, "http_competitors");
             }
 
             _logger.LogInformation(

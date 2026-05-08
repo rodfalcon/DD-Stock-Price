@@ -59,7 +59,10 @@ public sealed class StockPriceGaugeHeartbeatService : BackgroundService
                         .FirstOrDefaultAsync(stoppingToken);
 
                     if (latest != null)
+                    {
                         _quoteTelemetry.RecordLatestUsdGauge(symbol, latest.Price, "database_heartbeat");
+                        _quoteTelemetry.RecordChangePercentGauge(symbol, latest.ChangePercent, "database_heartbeat");
+                    }
                 }
             }
             catch (OperationCanceledException)

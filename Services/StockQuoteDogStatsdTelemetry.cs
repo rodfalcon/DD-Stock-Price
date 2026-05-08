@@ -43,6 +43,19 @@ public sealed class StockQuoteDogStatsdTelemetry : IStockQuoteTelemetry
     }
 
     /// <inheritdoc />
+    public void RecordChangePercentGauge(string symbol, decimal changePercent, string channel)
+    {
+        var tags = new[]
+        {
+            CompanyTag(symbol),
+            $"symbol:{symbol}",
+            $"channel:{channel}",
+        };
+
+        TryEmit(() => DogStatsd.Gauge("stock_price.change_percent", (double)changePercent, tags: tags));
+    }
+
+    /// <inheritdoc />
     public void RecordFetchedBatchFailure(string symbol, string reason)
     {
         var tags = new[]

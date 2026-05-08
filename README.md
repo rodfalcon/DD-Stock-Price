@@ -1,10 +1,28 @@
 # DD-Stock-Price
 
-Sample **ASP.NET Core** API plus **React** frontend that loads observability data into **Datadog** (logs, APM traces, unified service tagging, optional RUM). A background worker pulls quotes for **DDOG**, **DT**, and **NEWR** from **[Alpha Vantage](#alpha-vantage-how-quotes-work)** and stores them in **SQLite** (`stockprices.db`).
+Sample **ASP.NET Core** API plus **React** frontend that loads observability data into **Datadog** (logs, APM traces, unified service tagging, optional RUM). **Business metrics for stock quotes are custom metrics**, sent **from this app through [DogStatsD](https://docs.datadoghq.com/developers/dogstatsd/)** over UDP to the Datadog Agent (see [`Services/DogStatsdConfigurationService.cs`](Services/DogStatsdConfigurationService.cs) and **[DogStatsd custom metrics](#dogstatsd-custom-metrics-for-this-project)**). A background worker pulls quotes for **DDOG**, **DT**, and **NEWR** from **[Alpha Vantage](#alpha-vantage-how-quotes-work)** and stores them in **SQLite** (`stockprices.db`).
 
 **Stock Prices Dashboard** (React UI preview):
 
 ![Stock Prices Dashboard – competitor quotes table](docs/images/stock-prices-dashboard-preview.png)
+
+---
+
+## DogStatsd custom metrics for this project
+
+Stock-related observability beyond logs and **APM** is deliberately implemented as **Datadog custom metrics via DogStatsD**: the backend uses **`StatsdClient`** and the Agent listens on **`DOGSTATSD_HOST` / `DOGSTATSD_PORT`** (UDP **8125** in Compose and Kubernetes). The Agent submits those metrics to Datadog—no separate Metrics API credentials in application code beyond reaching the Agent.
+
+**Series emitted:**
+
+| Metric | Type | Typical use |
+|--------|------|-------------|
+| `stock_price.latest` | Gauge | Last USD price; **Monitors** (e.g. `avg:last_5m` vs a sell target) tagged by `symbol`, `company`, `channel` |
+| `stock_price.change_percent` | Gauge | Same-day-style change % from the quote snapshot (`channel` distinguishes live fetch vs SQLite heartbeat) |
+| `stock_price.observation` | Count | Bump when a quote is surfaced with full price telemetry |
+| `stock_price.fetch.attempt` | Count | Each Alpha Vantage pull attempt |
+| `stock_price.fetch.error` | Count | Failures tagged with **`reason:`** (`no_quote`, `http_error`, etc.) |
+
+**Tags:** **`symbol`** (e.g. `DDOG`), **`company`** (`Datadog`, `Dynatrace`, `NewRelic`, or `other`), **`channel`** (`alphavantage_fetch`, `database_heartbeat`, HTTP paths such as `http_single`), matching how you facet in dashboards and monitors. Tag values are **case-sensitive** in Datadog (use `symbol:DDOG` if that is how the app emits—check **Metrics Summary**).
 
 ---
 
@@ -180,7 +198,7 @@ Until RUM is configured, the rest of the app still runs; you simply will not see
 
 - **Services:** `stock-price-api` (API), `stock-price-frontend` (UI), plus cluster/agent services.
 - **Log Explorer:** filter with `service:stock-price-api`, `source:csharp`, or `env:production` (adjust for your env). Include **Info** as well as **Error** if you expect normal request logs.
-- **Custom metrics (stock price):** The API emits **DogStatsd** gauges and counters (e.g. **`stock_price.latest`** in USD with **`company:`** and **`symbol:`** tags, **`stock_price.observation`**, **`stock_price.fetch.attempt`**, **`stock_price.fetch.error`** with **`reason:`**). In Kubernetes, **`deployment.yaml`** sets **`DOGSTATSD_HOST`** / **`DOGSTATSD_PORT`** toward the Datadog Agent Service; ensure the Helm chart exposes **UDP 8125** (see [DogStatsD on Kubernetes](https://docs.datadoghq.com/agent/kubernetes/dogstatsd/)). Docker Compose maps **`8125/udp`** on the agent and sets the same env vars on **`backend`**.
+- **Custom metrics (DogStatsd):** See **[DogStatsd custom metrics for this project](#dogstatsd-custom-metrics-for-this-project)** for emitted series (`stock_price.latest`, `stock_price.change_percent`, `stock_price.observation`, `stock_price.fetch.*`) and tagging. **`deployment.yaml`** (Kubernetes) and **`docker-compose.yml`** set **`DOGSTATSD_HOST`** / **`DOGSTATSD_PORT`** toward the Agent; Helm must expose **[UDP DogStatsd](https://docs.datadoghq.com/agent/kubernetes/dogstatsd/)** on **8125** where relevant.
 
 - **Logs ↔ traces:** Use structured JSON logs, `DD_LOGS_INJECTION` / `DD_TRACE_LOGS_INJECTION`, and consistent `DD_ENV` / `DD_SERVICE` / `DD_VERSION`. HTTP requests are traced automatically via **SSI**; there is **no** `Datadog.Trace` NuGet package or manual spans in this app—see `deployment.yaml` and `Startup.cs`.
 

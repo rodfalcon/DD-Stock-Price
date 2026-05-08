@@ -10,6 +10,9 @@ public interface IStockQuoteTelemetry
     /// <summary>Same as <see cref="RecordLatestUsdPrice"/> but sends only the <c>stock_price.latest</c> gauge (no observation counter). Use between API fetches from cached DB rows.</summary>
     void RecordLatestUsdGauge(string symbol, decimal priceUsd, string channel);
 
+    /// <summary>Daily change % from the quote (Alpha Vantage-style). Separate gauge for threshold monitors (e.g. sharp drop).</summary>
+    void RecordChangePercentGauge(string symbol, decimal changePercent, string channel);
+
     /// <param name="reason">no_quote | http_error | parse_error | save_error | config_missing | exception</param>
     void RecordFetchedBatchFailure(string symbol, string reason);
 

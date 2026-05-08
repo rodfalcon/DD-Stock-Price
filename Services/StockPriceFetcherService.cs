@@ -198,6 +198,7 @@ public class StockPriceFetcherService : BackgroundService
             stockPrice.ChangePercent,
             stockPrice.Volume);
         _quoteTelemetry.RecordLatestUsdPrice(symbol, stockPrice.Price, "alphavantage_fetch");
+        _quoteTelemetry.RecordChangePercentGauge(symbol, stockPrice.ChangePercent, "alphavantage_fetch");
     }
 
     private string? ResolveAlphaVantageKey(string symbol)
