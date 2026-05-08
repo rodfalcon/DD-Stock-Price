@@ -24,6 +24,10 @@ Stock-related observability beyond logs and **APM** is deliberately implemented 
 
 **Tags:** **`symbol`** (e.g. `DDOG`), **`company`** (`Datadog`, `Dynatrace`, `NewRelic`, or `other`), **`channel`** (`alphavantage_fetch`, `database_heartbeat`, HTTP paths such as `http_single`), matching how you facet in dashboards and monitors. Tag values are **case-sensitive** in Datadog (use `symbol:DDOG` if that is how the app emits—check **Metrics Summary**).
 
+**Example (Metric monitor):** A threshold monitor on **`stock_price.latest`** in Datadog (query, threshold line, notification—configure to match **your** tag values and investing rules).
+
+![Datadog metric monitor — DDOG Share Profit Alert on stock_price.latest](docs/images/datadog-ddog-share-profit-alert-monitor.png)
+
 ---
 
 ## Alpha Vantage: how quotes work
@@ -272,6 +276,7 @@ Deployment and pod labels use **`tags.datadoghq.com/env`**, **`service`**, **`ve
 | `docker-compose.yml` | Local stack with agent, frontend, backend, SQL optional |
 | `stock-price-frontend/` | React app served via nginx in production image |
 | `stock-price-frontend/src/index.js` | Datadog Browser RUM + Logs init (`REACT_APP_DD_*` or local defaults) |
+| `docs/images/` | README screenshots (dashboard, APM correlation, example DogStatsd monitor) |
 
 ---
 
