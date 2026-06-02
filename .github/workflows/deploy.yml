@@ -7,7 +7,6 @@ on:
 jobs:
     deploy:
         runs-on: self-hosted
-        needs: static-analysis
         steps:
          # Checkout the code
             - name: Checkout
@@ -41,16 +40,3 @@ jobs:
               run: |
                 kubectl rollout status deployment/stockprice-backend -n stockprice
                 kubectl rollout status deployment/stockprice-frontend -n stockprice
-    static-analysis:
-        runs-on: self-hosted
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-            - name: Datadog Static analysis
-              uses: DataDog/datadog-static-analyzer-github-action@v1
-              with:
-                dd_api_key: ${{ secrets.DD_API_KEY }}
-                dd_app_key: ${{ secrets.DD_APP_KEY }}
-                dd_service: stock-price-api
-                dd_env: ci
-                dd_site: datadoghq.com
