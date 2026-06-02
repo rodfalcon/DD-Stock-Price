@@ -22,7 +22,7 @@ jobs:
               run: |
                 docker build -f Dockerfile.frontend \
                   -t stockprice-frontend:${{ env.IMAGE_TAG }} \
-                  ./stock-price-frontend
+                  .
             # Deploy the images
             - name: Deploy
               run: |
