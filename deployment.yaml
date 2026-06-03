@@ -1,7 +1,30 @@
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: stockprice-backend-config
+    namespace: stockprice
+  data:
+    ASPNETCORE_ENVIRONMENT: "Production"
+    AlphaVantage__FetchIntervalHours: "6"
+    StockPrice__GaugeHeartbeatMinutes: "15"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: stockprice-backend-pdb
+  namespace: stockprice
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: stockprice-backend
+      namespace: stockprice
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: stockprice-backend
+  namespace: stockprice
   labels:
     app: stockprice-backend
     tags.datadoghq.com/env: "production"
@@ -31,14 +54,14 @@ spec:
     spec:
       containers:
         - name: stockprice-backend
-          # Bump tag after rebuilds so local K8s does not keep an old digest for a reused name.
-          image: stockprice-backend:heartbeat-schedule
-          imagePullPolicy: IfNotPresent
+          image: dotnetapmdev.azurecr.io/stockprice-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: stockprice-backend-config
           env:
-            - name: ASPNETCORE_ENVIRONMENT
-              value: "Production"
             # Admission injects DD_TRACE_AGENT_URL=unix:///var/run/datadog/apm.socket; on Docker Desktop + .NET
             # the managed tracer often fails UDS (EADDRNOTAVAIL) and never reaches the agent. TCP to the in-cluster
             # Agent service works and restores APM (RUM is unrelated—it sends straight to Datadog from the browser).
@@ -67,16 +90,33 @@ spec:
               value: "8125"
             # Real quotes: https://www.alphavantage.co/support/#api-key — set via secret in production.
             - name: ALPHA_VANTAGE_API_KEY
-              value: ""
-            # ~8 batches/day × 3 symbols ≈ 24 Alpha Vantage calls (within typical 25/day free cap).
-            - name: AlphaVantage__FetchIntervalHours
-              value: "3"
-            # DogStatsd: repeat last SQLite price without calling Alpha Vantage.
-            - name: StockPrice__GaugeHeartbeatMinutes
-              value: "15"
+              valueFrom:
+                secretKeyRef:
+                  name: stockprice-secrets
+                  key: alpha-vantage-api-key
           volumeMounts:
             - name: app-logs
               mountPath: /app/logs
+          readinessProbe:
+            httpGet:
+              path: /api/stockprice/competitors
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
       volumes:
         - name: app-logs
           emptyDir: {}
@@ -85,6 +125,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: stockprice-frontend
+  namespace: stockprice
   labels:
     app: stockprice-frontend
     tags.datadoghq.com/env: "production"
@@ -112,8 +153,8 @@ spec:
     spec:
       containers:
         - name: stockprice-frontend
-          image: stockprice-frontend:prod
-          imagePullPolicy: IfNotPresent
+          image: dotnetapmdev.azurecr.io/stockprice-frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           env:
@@ -123,12 +164,19 @@ spec:
               value: "stock-price-frontend"
             - name: DD_VERSION
               value: "1.0.0"
-
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: stockprice-db
+  namespace: stockprice
   labels:
     app: stockprice-db
     tags.datadoghq.com/env: "production"
@@ -161,13 +209,24 @@ spec:
             - name: ACCEPT_EULA
               value: "Y"
             - name: SA_PASSWORD
-              value: "YourStrong!Passw0rd"
+              valueFrom:
+                secretKeyRef:
+                  name: stockprice-secrets
+                  key: sa-password
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: stockprice-backend-service
+  namespace: stockprice
 spec:
   selector:
     app: stockprice-backend
@@ -181,7 +240,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: stockprice-frontend-service
+  name: stockprice-frontend-service 
+  namespace: stockprice
 spec:
   selector:
     app: stockprice-frontend
@@ -198,6 +258,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: stockprice-db-service
+  namespace: stockprice
 spec:
   selector:
     app: stockprice-db
@@ -206,11 +267,32 @@ spec:
       port: 1433
       targetPort: 1433
   type: ClusterIP
-
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: default
-  labels:
-    tags.datadoghq.com/env: production
+  apiVersion: datadoghq.com/v1alpha1
+  kind: DatadogMetric
+  metadata:
+    name: stock-price-ddog
+    namespace: stockprice
+  spec:
+    query: avg:stock_price.latest{symbol:ddog}
+---
+  apiVersion: autoscaling/v2
+  kind: HorizontalPodAutoscaler
+  metadata:
+    name: stockprice-backend-hpa
+    namespace: stockprice
+  spec:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: stockprice-backend
+    minReplicas: 1
+    maxReplicas: 3
+    metrics:
+      - type: External
+        external:
+          metric:
+            name: datadogmetric@stockprice:stock-price-ddog
+          target:
+            type: AverageValue
+            averageValue: "50"

@@ -105,7 +105,7 @@ datadog:
   ## Compared to the rules of GKE, dots are allowed whereas they are not allowed on GKE:
   ## https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1beta1/projects.locations.clusters#Cluster.FIELDS.name
   # Required for orchestrator / unified cluster identity (see agent status "cluster name is empty")
-  clusterName: dd-stock-price-local
+  clusterName: dd-stock-price-aks
 
   # datadog.site -- The site of the Datadog intake to send Agent data to.
   # (documentation: https://docs.datadoghq.com/getting_started/site/)
@@ -264,8 +264,11 @@ datadog:
   # datadog.tags -- List of static tags to attach to every metric, event and service check collected by this Agent.
 
   ## Learn more about tagging: https://docs.datadoghq.com/tagging/
-  tags:
-    - "env:production"
+  ## Per-app env/service/version come from Unified Service Tagging labels on each pod:
+  ##   tags.datadoghq.com/env, tags.datadoghq.com/service, tags.datadoghq.com/version
+  ## Leaving this list empty avoids cross-contaminating external traces (e.g. host apps
+  ## sending via port-forward) with a cluster-wide env tag.
+  tags: []
   #   - "<KEY_2>:<VALUE_2>"
 
   # datadog.checksCardinality -- Sets the tag cardinality for the checks run by the Agent.
@@ -1034,7 +1037,7 @@ clusterAgent:
   # Enable the metricsProvider to be able to scale based on metrics in Datadog
   metricsProvider:
     # clusterAgent.metricsProvider.enabled -- Set this to true to enable Metrics Provider
-    enabled: false
+    enabled: true
 
     # clusterAgent.metricsProvider.registerAPIService -- Set this to false to disable external metrics registration as an APIService
     registerAPIService: true
@@ -1047,7 +1050,7 @@ clusterAgent:
     # clusterAgent.metricsProvider.useDatadogMetrics -- Enable usage of DatadogMetric CRD to autoscale on arbitrary Datadog queries
 
     ## Note: It will install DatadogMetrics CRD automatically (it may conflict with previous installations)
-    useDatadogMetrics: false
+    useDatadogMetrics: true
 
     # clusterAgent.metricsProvider.createReaderRbac -- Create `external-metrics-reader` RBAC automatically (to allow HPA to read data from Cluster Agent)
     createReaderRbac: true

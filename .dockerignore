@@ -1,0 +1,8 @@
+obj/
+bin/
+.git/
+*.db
+stock-price-frontend/node_modules/
+stock-price-frontend/build/
+.vscode/
+actions-runner/

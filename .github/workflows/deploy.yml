@@ -14,29 +14,36 @@ jobs:
             - name: Set image tag
               run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
             - name: Set Docker context
-              run: docker context use colima 2>/dev/null || true  
+              run: docker context use colima 2>/dev/null || true
+            #Add ACR login     
+            - name: Login to ACR
+              run: |
+                az acr login --name dotnetapmdev
             # Build the images
             - name: Build backend
               run: |
-                docker build -f Dockerfile.backend \
-                  -t stockprice-backend:${{ env.IMAGE_TAG }} .
+                docker build --platform linux/amd64 -f Dockerfile.backend \
+                  -t dotnetapmdev.azurecr.io/stockprice-backend:${{ env.IMAGE_TAG }} .
             - name: Build frontend
               run: |
-                docker build -f Dockerfile.frontend \
-                  -t stockprice-frontend:${{ env.IMAGE_TAG }} \
-                  .
+                docker build --platform linux/amd64 -f Dockerfile.frontend \
+                  -t dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }} .
+            - name: Push images
+              run: |
+                    docker push dotnetapmdev.azurecr.io/stockprice-backend:${{ env.IMAGE_TAG }}
+                    docker push dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }}
             # Deploy the images
             - name: Deploy
               run: |
-                    kubectl set image deployment/stockprice-backend \
-                      stockprice-backend=stockprice-backend:${{ env.IMAGE_TAG }} \
-                      -n stockprice
-                    kubectl set image deployment/stockprice-frontend \
-                      stockprice-frontend=stockprice-frontend:${{ env.IMAGE_TAG }} \
-                      -n stockprice
-                    kubectl set env deployment/stockprice-backend \
-                      DD_VERSION=${{ env.IMAGE_TAG }} \
-                      -n stockprice
+                  kubectl set image deployment/stockprice-backend \
+                    stockprice-backend=dotnetapmdev.azurecr.io/stockprice-backend:${{ env.IMAGE_TAG }} \
+                    -n stockprice
+                  kubectl set image deployment/stockprice-frontend \
+                    stockprice-frontend=dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }} \
+                    -n stockprice
+                  kubectl set env deployment/stockprice-backend \
+                    DD_VERSION=${{ env.IMAGE_TAG }} \
+                    -n stockprice
             # Verify the rollout
             - name: Verify rollout
               run: |
