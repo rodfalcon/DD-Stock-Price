@@ -35,15 +35,16 @@ jobs:
             # Deploy the images
             - name: Deploy
               run: |
-                  kubectl set image deployment/stockprice-backend \
-                    stockprice-backend=dotnetapmdev.azurecr.io/stockprice-backend:${{ env.IMAGE_TAG }} \
-                    -n stockprice
-                  kubectl set image deployment/stockprice-frontend \
-                    stockprice-frontend=dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }} \
-                    -n stockprice
-                  kubectl set env deployment/stockprice-backend \
-                    DD_VERSION=${{ env.IMAGE_TAG }} \
-                    -n stockprice
+                kubectl apply -f deployment.yaml -n stockprice
+                kubectl set image deployment/stockprice-backend \
+                  stockprice-backend=dotnetapmdev.azurecr.io/stockprice-backend:${{ env.IMAGE_TAG }} \
+                  -n stockprice
+                kubectl set image deployment/stockprice-frontend \
+                  stockprice-frontend=dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }} \
+                  -n stockprice
+                kubectl set env deployment/stockprice-backend \
+                  DD_VERSION=${{ env.IMAGE_TAG }} \
+                  -n stockprice
             # Verify the rollout
             - name: Verify rollout
               run: |
