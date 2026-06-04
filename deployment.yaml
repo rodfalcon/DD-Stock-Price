@@ -5,7 +5,7 @@
     namespace: stockprice
   data:
     ASPNETCORE_ENVIRONMENT: "Production"
-    AlphaVantage__FetchIntervalHours: "6"
+    Finnhub__FetchIntervalHours: "6"
     StockPrice__GaugeHeartbeatMinutes: "15"
 ---
 apiVersion: policy/v1
@@ -89,11 +89,11 @@ spec:
             - name: DOGSTATSD_PORT
               value: "8125"
             # Real quotes: https://www.alphavantage.co/support/#api-key — set via secret in production.
-            - name: ALPHA_VANTAGE_API_KEY
+            - name: FINNHUB_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: stockprice-secrets
-                  key: alpha-vantage-api-key
+                  key: finnhub-api-key
           volumeMounts:
             - name: app-logs
               mountPath: /app/logs
