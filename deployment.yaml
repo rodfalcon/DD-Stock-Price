@@ -242,16 +242,14 @@ kind: Service
 metadata:
   name: stockprice-frontend-service
   namespace: stockprice
-  annotations:
-    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 spec:
   selector:
     app: stockprice-frontend
   ports:
     - protocol: TCP
-      port: 8080
+      port: 80
       targetPort: 80
-  type: LoadBalancer
+  type: ClusterIP
 
 ---
 apiVersion: v1

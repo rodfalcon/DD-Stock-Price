@@ -1,0 +1,22 @@
+controller:
+  service:
+    annotations:
+      service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+  extraInitContainers:
+    - name: datadog-tracer-init
+      image: datadog/ingress-nginx-injection:v1.15.1
+      command: ['/datadog/init_module.sh', '/opt/datadog-modules']
+      volumeMounts:
+        - name: datadog-modules
+          mountPath: /opt/datadog-modules
+  extraVolumes:
+    - name: datadog-modules
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: datadog-modules
+      mountPath: /opt/datadog-modules
+  config:
+    main-snippet: "load_module /opt/datadog-modules/ngx_http_datadog_module.so;"
+  extraEnvs:
+    - name: DD_AGENT_HOST
+      value: "datadog.datadog.svc.cluster.local"

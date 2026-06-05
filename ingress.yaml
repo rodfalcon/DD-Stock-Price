@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stockprice-ingress
+  namespace: stockprice
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - stockprice.51.105.221.77.nip.io
+      secretName: stockprice-tls
+  rules:
+    - host: stockprice.51.105.221.77.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: stockprice-frontend-service
+                port:
+                  number: 80
