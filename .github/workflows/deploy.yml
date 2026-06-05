@@ -27,6 +27,7 @@ jobs:
             - name: Build frontend
               run: |
                 docker build --platform linux/amd64 -f Dockerfile.frontend \
+                  --build-arg REACT_APP_DD_VERSION=${{ env.IMAGE_TAG }} \
                   -t dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }} .
             - name: Push images
               run: |
@@ -43,6 +44,9 @@ jobs:
                   stockprice-frontend=dotnetapmdev.azurecr.io/stockprice-frontend:${{ env.IMAGE_TAG }} \
                   -n stockprice
                 kubectl set env deployment/stockprice-backend \
+                  DD_VERSION=${{ env.IMAGE_TAG }} \
+                  -n stockprice
+                kubectl set env deployment/stockprice-frontend \
                   DD_VERSION=${{ env.IMAGE_TAG }} \
                   -n stockprice
             # Verify the rollout
