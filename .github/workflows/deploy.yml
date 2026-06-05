@@ -36,6 +36,7 @@ jobs:
             # Deploy the images
             - name: Deploy
               run: |
+                kubectl config use-context aks-dd-stock-price
                 kubectl apply -f deployment.yaml -n stockprice
                 kubectl set image deployment/stockprice-backend \
                   stockprice-backend=dotnetapmdev.azurecr.io/stockprice-backend:${{ env.IMAGE_TAG }} \
