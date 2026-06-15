@@ -146,7 +146,7 @@ spec:
       annotations:
         ad.datadoghq.com/stockprice-frontend.check_names: '["nginx"]'
         ad.datadoghq.com/stockprice-frontend.init_configs: '[{}]'
-        ad.datadoghq.com/stockprice-frontend.instances: '[{"host": "%%host%%", "port": 80}]'
+        ad.datadoghq.com/stockprice-frontend.instances: '[{"nginx_status_url": "http://%%host%%:80/nginx_status"}]'
         ad.datadoghq.com/stockprice-frontend.logs: '[{"source":"nginx","service":"stock-price-frontend","tags":["env:production","version:1.0.0"]}]'
         admission.datadoghq.com/enabled: "true"
         admission.datadoghq.com/js-lib.version: "latest"
@@ -197,7 +197,7 @@ spec:
       annotations:
         ad.datadoghq.com/stockprice-db.check_names: '["sqlserver"]'
         ad.datadoghq.com/stockprice-db.init_configs: '[{}]'
-        ad.datadoghq.com/stockprice-db.instances: '[{"host": "%%host%%", "port": 1433}]'
+        ad.datadoghq.com/stockprice-db.instances: '[{"host": "%%host%%,1433", "username": "SA", "password": "YourStrong!Passw0rd", "connector": "odbc", "driver": "FreeTDS"}]'
         ad.datadoghq.com/stockprice-db.logs: '[{"source":"sqlserver","service":"stockprice-sqlserver","tags":["env:production"]}]'
     spec:
       containers:

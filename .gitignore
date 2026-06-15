@@ -5,5 +5,9 @@ out/
 
 # IDE / OS
 .vs/
+.vscode/
 *.user
 .DS_Store
+
+# Self-hosted runner
+actions-runner/

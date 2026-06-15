@@ -1,4 +1,8 @@
 controller:
+  podAnnotations:
+    ad.datadoghq.com/controller.check_names: '["openmetrics"]'
+    ad.datadoghq.com/controller.init_configs: '[{}]'
+    ad.datadoghq.com/controller.instances: '[{"openmetrics_endpoint": "http://%%host%%:10254/metrics", "namespace": "ingress_nginx", "metrics": [".*"]}]'
   service:
     annotations:
       service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
@@ -20,3 +24,9 @@ controller:
   extraEnvs:
     - name: DD_AGENT_HOST
       value: "datadog.datadog.svc.cluster.local"
+    - name: DD_ENV
+      value: "production"
+    - name: DD_SERVICE
+      value: "ingress-nginx"
+    - name: DD_VERSION
+      value: "v1.15.1"

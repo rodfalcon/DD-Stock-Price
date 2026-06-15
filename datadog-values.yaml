@@ -1460,7 +1460,9 @@ agents:
     tagSuffix: ""
 
     # agents.image.repository -- Override default registry + image.name for Agent
-    repository:
+    repository: dotnetapmdev.azurecr.io/datadog-agent-mssql
+    tag: "7"
+    doNotCheckTag: true
 
     # agents.image.doNotCheckTag -- Skip the version and chart compatibility check
 
@@ -1469,7 +1471,6 @@ agents:
     ## This boolean permits to completely skip this check.
     ## This is useful, for example, for custom tags that are not
     ## respecting semantic versioning
-    doNotCheckTag:  # false
 
     # agents.image.pullPolicy -- Datadog Agent image pull policy
     pullPolicy: IfNotPresent
@@ -2192,7 +2193,7 @@ providers:
       useHostnameFromFile: false
   aks:
     # providers.aks.enabled -- Activate all specificities related to AKS configuration. Required as currently we cannot auto-detect AKS.
-    enabled: false
+    enabled: true
 
 remoteConfiguration:
   # remoteConfiguration.enabled -- Set to true to enable remote configuration on the Cluster Agent (if set) and the node agent.
